@@ -11,6 +11,7 @@ from database.db import store_scraped_data_in_db, is_url_scraped
 from summarize.summarize import summarize_text
 from speech.tts import generate_tts_audio_and_subtitles
 from logger import log_info, log_warning, log_error  
+from image.image_search import search_images_from_content
 
 # Initialize a session to maintain the connection across requests
 session = requests.Session()
@@ -142,6 +143,8 @@ async def scrape_press_release(url: str):
         response.raise_for_status()
 
         soup = BeautifulSoup(response.content, 'html.parser')
+
+        print(f'\n\n {soup} \n\n')
         
         # Extract text from paragraphs within the main content section
         all_text = ' '.join([p.get_text() for p in soup.select('.innner-page-main-about-us-content-right-part p')]).strip()
@@ -158,6 +161,10 @@ async def scrape_press_release(url: str):
         # Extract content
         content = txt_cleaner(all_text)
 
+
+        generated_images = search_images_from_content(content)
+        
+
         # Summarize the content
         log_info(f"Started Summarizing Press Release: {title}")
         content_length = len(content.split())
@@ -172,28 +179,38 @@ async def scrape_press_release(url: str):
         img_src = [img.get('src') for img in soup.select('div.innner-page-main-about-us-content-right-part img')] or None
 
         # Extract iframes
-        iframes = soup.select('div.innner-page-main-about-us-content-right-part iframe')
-        iframe_src = [iframe['src'] for iframe in iframes if iframe.has_attr('src')] or None
+        # # Extract iframes including Twitter embeds
+        iframes = soup.select('div.innner-page-main-about-us-content-right-part iframe, div.innner-page-main-about-us-content-right-part blockquote.twitter-tweet')
+        iframe_src = []
+        for iframe in iframes:
+            if iframe.name == 'iframe' and iframe.has_attr('src'):
+                iframe_src.append(iframe['src'])
+            elif iframe.get('class') == ['twitter-tweet']:
+                # For Twitter embeds, get the tweet URL
+                tweet_link = iframe.find('a', href=True)
+                if tweet_link:
+                    iframe_src.append(tweet_link['href'])
 
         # Generate TTS
-        summary_audio = await generate_tts_audio_and_subtitles(summary, f"summary_{title}", 'english')
-        content_audio = await generate_tts_audio_and_subtitles(content, f"content_{title}", 'english')
+        summary_audio = await generate_tts_audio_and_subtitles(summary, f"{title}", 'english')
+        # content_audio = await generate_tts_audio_and_subtitles(content, f"content_{title}", 'english')
 
         data = {
             'date_posted': date_posted,
             'images': img_src,
             'iframes': iframe_src,
             'url': url,
+            "generated_images": generated_images,
             'translations': {
                 'english': {
                     'title': title,
                     'summary': summary,
                     'ministry': ministry,
                     'content': content,
-                    'summary_audio': summary_audio.get("audio"),
-                    'summary_subtitle': summary_audio.get("subtitle"),
-                    'content_audio': content_audio.get("audio"),
-                    'content_subtitle': content_audio.get("subtitle"),
+                    'audio': summary_audio.get("audio"),
+                    'subtitle': summary_audio.get("subtitle"),
+                    # 'content_audio': content_audio.get("audio"),
+                    # 'content_subtitle': content_audio.get("subtitle"),
                     'status': 'completed',
                 }
             },

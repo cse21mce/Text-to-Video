@@ -59,8 +59,8 @@ async def text_to_video_endpoint(url: str = Query(..., description="The URL of t
         await translate(
             _id=press_release.get('_id'),
             title=press_release['translations']['english']['title'],
-            summary=press_release['translations']['english']['summary'],
             content=press_release['translations']['english']['content'],
+            summary=press_release['translations']['english']['summary'],
             ministry=press_release['translations']['english']['ministry']
         )
 
