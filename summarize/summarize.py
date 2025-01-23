@@ -1,10 +1,7 @@
 from transformers import PegasusTokenizer, PegasusForConditionalGeneration
-import logging
 
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Importing custom logger
+from logger import log_info, log_warning, log_error, log_success
 
 # Load Pegasus model and tokenizer
 MODEL_NAME = "google/pegasus-xsum"  # Choose between "google/pegasus-cnn_dailymail" or "google/pegasus-xsum"
@@ -12,10 +9,10 @@ try:
     tokenizer = PegasusTokenizer.from_pretrained(MODEL_NAME)
     model = PegasusForConditionalGeneration.from_pretrained(MODEL_NAME)
 except Exception as e:
+    log_error(f"Error loading Pegasus model: {e}")
     raise RuntimeError(f"Error loading Pegasus model: {e}")
 
-
-def summarize_text(text: str, max_length: int = 60, min_length: int = 10) -> str:
+def summarize_text(text: str, max_length: int, min_length: int) -> str:
     """
     Summarizes the given text using the Pegasus model.
 
@@ -28,7 +25,8 @@ def summarize_text(text: str, max_length: int = 60, min_length: int = 10) -> str
         str: The generated summary.
     """
     try:
-        logging.info(f"Summarizing text started")
+        log_info("Starting text summarization")
+        
         # Tokenize the input text
         inputs = tokenizer(
             text,
@@ -49,9 +47,9 @@ def summarize_text(text: str, max_length: int = 60, min_length: int = 10) -> str
 
         # Decode the generated summary
         summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-        logging.info(f"Summarizing text completed")
+        log_success("Text summarization completed successfully")
         return summary
 
     except Exception as e:
+        log_error(f"Error during text summarization: {e}")
         raise RuntimeError(f"Error generating summary: {str(e)}")
-

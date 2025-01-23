@@ -1,20 +1,21 @@
+
 import requests
 from bs4 import BeautifulSoup
 import re
-from datetime import datetime, timedelta
-import logging
+from datetime import datetime
 from urllib.parse import urljoin
-from utils import convert_object_ids
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# User defined modules
+from utils import convert_object_ids
+from database.db import store_scraped_data_in_db, is_url_scraped
+from summarize.summarize import summarize_text
+from speech.tts import generate_tts_audio_and_subtitles
+from logger import log_info, log_warning, log_error  
 
 # Initialize a session to maintain the connection across requests
 session = requests.Session()
 
 BASE_URL = 'https://pib.gov.in/allRel.aspx'
-# PRESS_RELEASE_BASE_URL = 'https://pib.gov.in/PressReleasePage.aspx'
 
 def txt_cleaner(txt):
     """
@@ -63,7 +64,7 @@ def get_press_releases(date: datetime, ministry_id: str = '0'):
         # Get the initial form data
         form_data = get_form_data()
         if not form_data:
-            logger.error("Failed to retrieve initial form data.")
+            log_error("Failed to retrieve initial form data.")
             return []
 
         # Update form data with selected values
@@ -72,18 +73,14 @@ def get_press_releases(date: datetime, ministry_id: str = '0'):
             'ctl00$ContentPlaceHolder1$ddlday': str(day),
             'ctl00$ContentPlaceHolder1$ddlMonth': str(month),
             'ctl00$ContentPlaceHolder1$ddlYear': str(year),
-            # Include the hidden fields
             'ctl00$ContentPlaceHolder1$hydregionid': '3',
             'ctl00$ContentPlaceHolder1$hydLangid': '1',
-            # If ASP.NET __EVENTTARGET and __EVENTARGUMENT are required:
             '__EVENTTARGET': 'ctl00$ContentPlaceHolder1$ddlMinistry',  # Update based on the dropdown
             '__EVENTARGUMENT': '',
         }
 
         # Merge with the extracted hidden form data
         payload.update(form_data)
-
-        # logger.info(f"Form Data Sent for {date.strftime('%Y-%m-%d')}: {payload}")
 
         headers = {
             'User-Agent': 'Mozilla/5.0',
@@ -93,16 +90,13 @@ def get_press_releases(date: datetime, ministry_id: str = '0'):
         response = session.post(BASE_URL, data=payload, headers=headers)
         response.raise_for_status()
 
-        # Log the request and response details
-        logger.debug(f"Request URL: {response.url}")
-        logger.debug(f"Response status code: {response.status_code}")
-        logger.debug(f"Response headers: {response.headers}")
-        logger.debug(f"HTML Content for {date.strftime('%Y-%m-%d')}: {response.text[:2000]}")
+        log_info(f"Request URL: {response.url}")
+        log_info(f"Response status code: {response.status_code}")
 
         soup = BeautifulSoup(response.content, 'html.parser')
         content_area = soup.find('div', class_='content-area')
         if not content_area:
-            logger.warning(f"No press releases found for {date.strftime('%Y-%m-%d')}")
+            log_warning(f"No press releases found for {date.strftime('%Y-%m-%d')}")
             return []
 
         releases = []
@@ -122,75 +116,24 @@ def get_press_releases(date: datetime, ministry_id: str = '0'):
                             'ministry': ministry_name,
                             'date': date.strftime('%Y-%m-%d')
                         })
-        logger.info(f"Found {len(releases)} releases for {date.strftime('%Y-%m-%d')}")
+        log_info(f"Found {len(releases)} releases for {date.strftime('%Y-%m-%d')}")
         return releases
 
     except Exception as e:
-        logger.error(f"Error fetching press releases for {date.strftime('%Y-%m-%d')}: {e}")
+        log_error(f"Error fetching press releases for {date.strftime('%Y-%m-%d')}: {e}")
         return []
 
-def scrape_press_release(url: str):
-    """
-    Scrapes details from a single press release page.
-    """
-    try:
-        response = session.get(url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        # Example: Extract title and content
-        title = soup.find('h1').text.strip() if soup.find('h1') else 'No Title'
-        content = soup.find('div', class_='press-content').text.strip() if soup.find('div', class_='press-content') else 'No Content'
-
-        return {
-            'title': title,
-            'url': url,
-            'content': content
-        }
-
-    except Exception as e:
-        logger.error(f"Error scraping press release at {url}: {e}")
-        return None
-    
-def scrape_all_releases(start_date: datetime, end_date: datetime, ministry_id: str = '0'):
-    try:
-        current_date = start_date
-        all_releases = []
-        seen_urls = set()  # Track URLs to avoid duplicates
-
-        while current_date <= end_date:
-            logger.info(f"Fetching releases for {current_date.strftime('%Y-%m-%d')}")
-            daily_releases = get_press_releases(current_date, ministry_id)
-            
-            if not daily_releases:
-                logger.info(f"No releases found for {current_date.strftime('%Y-%m-%d')}")
-            
-            for release in daily_releases:
-                if release['url'] not in seen_urls:
-                    logger.info(f"Scraping release: {release['title']}")
-                    detailed_release = scrape_press_release(release['url'])
-                    if detailed_release:
-                        all_releases.append(detailed_release)
-                        seen_urls.add(release['url'])
-                else:
-                    logger.info(f"Skipping duplicate URL: {release['url']}")
-
-            # Move to the next day
-            current_date += timedelta(days=1)
-
-        logger.info(f"Scraped a total of {len(all_releases)} releases between {start_date.strftime('%Y-%m-%d')} and {end_date.strftime('%Y-%m-%d')}")
-        return all_releases
-
-    except Exception as e:
-        logger.error(f"Error scraping releases between dates: {e}")
-        return []
-    
-def scrape_press_release(url: str):
+async def scrape_press_release(url: str):
     """
     Scrapes detailed information from a single press release URL.
     """
     try:
-        logger.debug(f"Scrapping Started for url {url}")  
+        scraped_data = is_url_scraped(url)
+        if(scraped_data != None):
+            log_info(f"Skipping already scraped URL: {url}")
+            return convert_object_ids(scraped_data)
+        
+        log_info(f"Scraping Started for URL: {url}")  
 
         headers = {
             'User-Agent': 'Mozilla/5.0',
@@ -198,14 +141,10 @@ def scrape_press_release(url: str):
         response = session.get(url, headers=headers)
         response.raise_for_status()
 
-        # # Print out the HTML content for debugging
-        # html_content = response.text
-
         soup = BeautifulSoup(response.content, 'html.parser')
         
         # Extract text from paragraphs within the main content section
         all_text = ' '.join([p.get_text() for p in soup.select('.innner-page-main-about-us-content-right-part p')]).strip()
-    
 
         # Extract title
         title = txt_cleaner(soup.select_one('div h2').get_text() if soup.select_one('div h2') else 'No Title')
@@ -219,27 +158,52 @@ def scrape_press_release(url: str):
         # Extract content
         content = txt_cleaner(all_text)
 
-        # Extract images
-        
-        img_src = [img.get('src') for img in soup.select('div.innner-page-main-about-us-content-right-part img')]
-        iframe_src = [iframe.get('src') for iframe in soup.select('div.innner-page-main-about-us-content-right-part iframe')]
-        all_image_src = img_src + iframe_src  # Combine image and iframe sources
-        if len(all_image_src) == 0:
-            all_image_src = None
+        # Summarize the content
+        log_info(f"Started Summarizing Press Release: {title}")
+        content_length = len(content.split())
+
+        max_length = min(1024, max(300, content_length // 2))
+        min_length = max(20, max(200, content_length // 4))
+
+        summary = summarize_text(content, max_length, min_length)
+        log_info(f"Completed Summarizing Press Release: {title}")
+
+        # Extract images and iframes
+        img_src = [img.get('src') for img in soup.select('div.innner-page-main-about-us-content-right-part img')] or None
+
+        # Extract iframes
+        iframes = soup.select('div.innner-page-main-about-us-content-right-part iframe')
+        iframe_src = [iframe['src'] for iframe in iframes if iframe.has_attr('src')] or None
+
+        # Generate TTS
+        summary_audio = await generate_tts_audio_and_subtitles(summary, f"summary_{title}", 'english')
+        content_audio = await generate_tts_audio_and_subtitles(content, f"content_{title}", 'english')
 
         data = {
-            'title': title,
             'date_posted': date_posted,
-            'ministry': ministry,
-            'content': content,
-            'images': all_image_src,
-            'url': url
+            'images': img_src,
+            'iframes': iframe_src,
+            'url': url,
+            'translations': {
+                'english': {
+                    'title': title,
+                    'summary': summary,
+                    'ministry': ministry,
+                    'content': content,
+                    'summary_audio': summary_audio.get("audio"),
+                    'summary_subtitle': summary_audio.get("subtitle"),
+                    'content_audio': content_audio.get("audio"),
+                    'content_subtitle': content_audio.get("subtitle"),
+                    'status': 'completed',
+                }
+            },
         }
 
-        logger.info(f"Successfully Scraped data from {url}")
-        return convert_object_ids(data)
+        db_data = store_scraped_data_in_db(data)
+
+        log_info(f"Successfully Scraped data from {url}")
+        return convert_object_ids(db_data)
 
     except Exception as e:
-        logger.error(f"Error scraping press release from {url}: {e}")
+        log_error(f"Error scraping press release from {url}: {e}")
         return None
-
