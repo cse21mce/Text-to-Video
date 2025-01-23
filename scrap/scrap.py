@@ -12,6 +12,8 @@ from summarize.summarize import summarize_text
 from speech.tts import generate_tts_audio_and_subtitles
 from logger import log_info, log_warning, log_error  
 from image.image_search import search_images_from_content
+from image.capture_iframe import capture_iframe
+
 
 # Initialize a session to maintain the connection across requests
 session = requests.Session()
@@ -144,7 +146,6 @@ async def scrape_press_release(url: str):
 
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        print(f'\n\n {soup} \n\n')
         
         # Extract text from paragraphs within the main content section
         all_text = ' '.join([p.get_text() for p in soup.select('.innner-page-main-about-us-content-right-part p')]).strip()
@@ -190,6 +191,10 @@ async def scrape_press_release(url: str):
                 tweet_link = iframe.find('a', href=True)
                 if tweet_link:
                     iframe_src.append(tweet_link['href'])
+                    
+                    # img_path = await capture_iframe(tweet_link['href'])
+                    # log_warning(f"Captured iframe: {img_path}")
+                    # iframe_src.append(img_path)
 
         # Generate TTS
         summary_audio = await generate_tts_audio_and_subtitles(summary, f"{title}", 'english')
