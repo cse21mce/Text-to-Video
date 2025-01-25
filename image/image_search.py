@@ -40,7 +40,7 @@ def process_with_gpt(content: str) -> List[str]:
    except json.JSONDecodeError:
        return [phrase.strip() for phrase in response_text.split('\n') if phrase.strip()]
 
-def google_image_search(prompt: str, num_images: int = 1, prioritize_pib: bool = True) -> List[Dict]:
+def google_image_search(prompt: str, num_images: int = 1, prioritize_pib: bool = False) -> List[Dict]:
    """Search images using Google Custom Search API."""
    service = build("customsearch", "v1", developerKey=GOOGLE_API_KEY)
    

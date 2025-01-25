@@ -36,39 +36,64 @@ def root():
     return {"message": "Welcome to PIB Press Releases To Multi-Lingual Video Generation API"}
 
 
+
 @app.get("/text-to-video", tags=["Text to Video"])
-async def text_to_video_endpoint(url: str = Query(..., description="The URL of the press release to convert into a multi-lingual video")):
+async def text_to_video_endpoint(
+    url: str = Query(
+        ..., 
+        description="The URL of the press release to convert into a multi-lingual video"
+    )
+):
     """
-    Convert text to multi-lingual video from the provided URL.
+    Convert press release text to multi-lingual video.
+    
+    Args:
+        url (str): The URL of the press release
+        
+    Returns:
+        StreamingResponse: Log stream of the conversion process
+        
+    Raises:
+        HTTPException: If URL is invalid or processing fails
     """
     try:
         if not url:
-            log_warning("No URL or empty URL provided.")
-            raise HTTPException(status_code=404, detail="URL is required.")
-
-        log_info(f"Starting text-to-video conversion for URL: {url}")
-
+            log_warning("Empty URL provided")
+            raise HTTPException(status_code=400, detail="URL is required")
+            
+        if not url.startswith('https://pib.gov.in'):
+            log_warning(f"Invalid URL domain: {url}")
+            raise HTTPException(status_code=400, detail="Invalid URL domain")
+            
+        log_info(f"Processing request for URL: {url}")
         
-        # Scrap the press release (placeholder function)
+        # Scrap the press release
         press_release = await scrape_press_release(url)
 
-        # log_success(f"Scraped press release titled: {press_release.get('title')}")
+        title = press_release["translations"]["english"]["title"]
+        content=press_release['translations']['english']['content']
+        summary=press_release['translations']['english']['summary']
+        ministry=press_release['translations']['english']['ministry']
 
-        # Translate the content (placeholder function)
-        log_info(f"Starting translation for Press Release titled: {press_release.get('title')}")
+        log_success(f"Scraped press release titled: {title}")
+
+        # Translate the content 
+        log_info(f"Starting translation for Press Release titled: {title}")
+
         await translate(
             _id=press_release.get('_id'),
-            title=press_release['translations']['english']['title'],
-            content=press_release['translations']['english']['content'],
-            summary=press_release['translations']['english']['summary'],
-            ministry=press_release['translations']['english']['ministry']
+            title=title,
+            content=content,
+            summary=summary,
+            ministry=ministry
         )
 
-        log_success(f"Translation completed for: {press_release.get('title')}")
+        log_success(f"Translation completed for: {title}")
 
     except Exception as e:
-        log_error(f"Error during text to video conversion: {e}")
+        log_error(f"Text to Video Processing failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
     # Reset the log stream position and stream the logs as the response
     log_stream.seek(0)

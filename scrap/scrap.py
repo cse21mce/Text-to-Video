@@ -4,6 +4,9 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 from urllib.parse import urljoin
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import asyncio
 
 # User defined modules
 from utils import convert_object_ids
@@ -13,6 +16,7 @@ from speech.tts import generate_tts_audio_and_subtitles
 from logger import log_info, log_warning, log_error  
 from image.image_search import search_images_from_content
 from image.capture_iframe import capture_iframe
+# from utils import save_html_to_file
 
 
 # Initialize a session to maintain the connection across requests
@@ -126,25 +130,54 @@ def get_press_releases(date: datetime, ministry_id: str = '0'):
         log_error(f"Error fetching press releases for {date.strftime('%Y-%m-%d')}: {e}")
         return []
 
+# Use asyncio.gather for parallel processing
+async def process_iframe(iframe):
+    if iframe.name == 'iframe' and iframe.has_attr('src'):
+        return iframe['src']
+    elif iframe.get('class') == ['twitter-tweet']:
+        tweet_link = iframe.find('a', href=True)
+        if tweet_link:
+            # log_info(f"Processing tweet: {tweet_link['href']}")
+            # img_path = await capture_iframe(tweet_link['href'])
+            # if img_path:
+            #     captured_images.append(img_path)
+            return tweet_link['href']
+    return None
+
 async def scrape_press_release(url: str):
     """
     Scrapes detailed information from a single press release URL.
+    
+    Args:
+        url (str): URL of the press release
+        
+    Returns:
+        dict: Scraped and processed data
     """
     try:
+        
+        # Check cache first
         scraped_data = is_url_scraped(url)
-        if(scraped_data != None):
-            log_info(f"Skipping already scraped URL: {url}")
+        if scraped_data:
+            log_info(f"Retrieved cached data for URL: {url}")
             return convert_object_ids(scraped_data)
         
-        log_info(f"Scraping Started for URL: {url}")  
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0',
-        }
-        response = session.get(url, headers=headers)
+        log_info(f"Starting fresh scrape for URL: {url}")
+        
+        # Initialize session with retry mechanism
+        session = requests.Session()
+        retries = Retry(total=3, backoff_factor=0.5)
+        session.mount('https://', HTTPAdapter(max_retries=retries))
+        
+        response = await asyncio.to_thread(
+            session.get, 
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0'}
+        )
         response.raise_for_status()
 
         soup = BeautifulSoup(response.content, 'html.parser')
+        # save_html_to_file(soup)
 
         
         # Extract text from paragraphs within the main content section
@@ -174,38 +207,53 @@ async def scrape_press_release(url: str):
         min_length = max(20, max(200, content_length // 4))
 
         summary = summarize_text(content, max_length, min_length)
+        # summary = ''
         log_info(f"Completed Summarizing Press Release: {title}")
 
-        # Extract images and iframes
-        img_src = [img.get('src') for img in soup.select('div.innner-page-main-about-us-content-right-part img')] or None
 
-        # Extract iframes
         # # Extract iframes including Twitter embeds
-        iframes = soup.select('div.innner-page-main-about-us-content-right-part iframe, div.innner-page-main-about-us-content-right-part blockquote.twitter-tweet')
-        iframe_src = []
-        for iframe in iframes:
-            if iframe.name == 'iframe' and iframe.has_attr('src'):
-                iframe_src.append(iframe['src'])
-            elif iframe.get('class') == ['twitter-tweet']:
-                # For Twitter embeds, get the tweet URL
-                tweet_link = iframe.find('a', href=True)
-                if tweet_link:
-                    iframe_src.append(tweet_link['href'])
-                    
-                    # img_path = await capture_iframe(tweet_link['href'])
-                    # log_warning(f"Captured iframe: {img_path}")
-                    # iframe_src.append(img_path)
+        # iframes = soup.select('div.innner-page-main-about-us-content-right-part iframe, div.innner-page-main-about-us-content-right-part blockquote.twitter-tweet')
+        # iframe_src = []
+        # for iframe in iframes:
+        #     if iframe.name == 'iframe' and iframe.has_attr('src'):
+        #         iframe_src.append(iframe['src'])
+        #     elif iframe.get('class') == ['twitter-tweet']:
+        #         # For Twitter embeds, get the tweet URL
+        #         tweet_link = iframe.find('a', href=True)
+        #         if tweet_link:
+        #             iframe_src.append(tweet_link['href'])
+        #             print(f"Tweet link: {tweet_link['href']}")
+        #             img_path = await capture_iframe(tweet_link['href'])
+        #             log_warning(f"Captured iframe: {img_path}")
+        #             iframe_src.append(img_path)
+        
+
+        # Extract images
+        img_src = [img.get('src') for img in soup.select('div.innner-page-main-about-us-content-right-part img')] or None
+        
+        # Extract iframes including Twitter embeds
+        # iframes = soup.select('div.innner-page-main-about-us-content-right-part iframe, div.innner-page-main-about-us-content-right-part blockquote.twitter-tweet a')
+        # iframe_src = [iframe['href'] for iframe in iframes]
+        # captured_images = []
+
+        
+        # # Process iframes in parallel
+        # iframe_tasks = [process_iframe(iframe) for iframe in iframes]
+        # iframe_results = await asyncio.gather(*iframe_tasks)
+        # iframe_src = [result for result in iframe_results if result]
+
+        # print(f"Captured images: {captured_images}")
 
         # Generate TTS
         summary_audio = await generate_tts_audio_and_subtitles(summary, f"{title}", 'english')
         # content_audio = await generate_tts_audio_and_subtitles(content, f"content_{title}", 'english')
 
         data = {
-            'date_posted': date_posted,
-            'images': img_src,
-            'iframes': iframe_src,
             'url': url,
+            # 'iframes': iframe_src,
+            'pib_images': img_src,
             "generated_images": generated_images,
+            'date_posted': date_posted,
             'translations': {
                 'english': {
                     'title': title,
@@ -214,8 +262,6 @@ async def scrape_press_release(url: str):
                     'content': content,
                     'audio': summary_audio.get("audio"),
                     'subtitle': summary_audio.get("subtitle"),
-                    # 'content_audio': content_audio.get("audio"),
-                    # 'content_subtitle': content_audio.get("subtitle"),
                     'status': 'completed',
                 }
             },
@@ -226,6 +272,9 @@ async def scrape_press_release(url: str):
         log_info(f"Successfully Scraped data from {url}")
         return convert_object_ids(db_data)
 
+    except requests.exceptions.RequestException as e:
+        log_error(f"Network error while scraping {url}: {e}")
+        raise
     except Exception as e:
-        log_error(f"Error scraping press release from {url}: {e}")
-        return None
+        log_error(f"Unexpected error while scraping {url}: {e}")
+        raise

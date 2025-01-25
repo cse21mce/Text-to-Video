@@ -1,4 +1,3 @@
-import asyncio
 from playwright.async_api import async_playwright
 import os
 from datetime import datetime
@@ -39,3 +38,21 @@ async def capture_iframe(embed_url):
            
        finally:
            await browser.close()
+
+
+import asyncio
+
+if __name__ == "__main__":
+    # Example embed URL for testing
+    # example_embed_url = "https://t.co/HrXmyrgHvH"
+    example_embed_url = f"https://twitter.com/narendramodi/status/1882664539621376263?ref_src=twsrc%5Etfw"
+
+    async def main():
+        result = await capture_iframe(example_embed_url)
+        if result:
+            print(f"Screenshot captured successfully: {result}")
+        else:
+            print("Failed to capture screenshot.")
+
+    # Run the async function
+    asyncio.run(main())

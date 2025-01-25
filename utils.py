@@ -38,3 +38,36 @@ def convert_object_ids(data):
         return str(data)
     else:
         return data
+    
+def split_sentences(text):
+    # Regular expression to split sentences while preserving abbreviations
+    # This handles common abbreviations like Mr., Mrs., Dr., H.E., etc.
+    sentence_pattern = r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s'
+    sentences = re.split(sentence_pattern, text)
+    return [sentence.strip() for sentence in sentences if sentence.strip()]
+
+
+def save_html_to_file(soup):
+    """
+    Save the HTML content of a BeautifulSoup object to a file.
+    
+    Args:
+    - soup (BeautifulSoup): Parsed HTML content
+    
+    Returns:
+    - str: Path to the saved file
+    """
+    import os
+    
+    # Ensure the directory exists
+    os.makedirs('html_outputs', exist_ok=True)
+    
+    # Full path to the file
+    filepath = os.path.join('html_outputs', 'index.html')
+    
+    # Write the HTML content
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(str(soup.prettify()))
+    
+    print(f"HTML content saved to {filepath}")
+    return filepath
