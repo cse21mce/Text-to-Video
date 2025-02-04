@@ -6,13 +6,15 @@ import asyncio
 
 async def generate_video(_id, translations):
     try:
-        clips = []
+        output_paths = []
+
         for trans in translations:
             audio = AudioFileClip(trans['audio'])
-            video = ColorClip(size=(1920, 1080), color=(0, 0, 0), duration=audio.duration)
+            video = ColorClip(size=(1080, 1920), color=(0, 0, 0), duration=audio.duration)
             video = video.with_audio(audio)
 
-            font_path = f"E:/Python/IITB/text-to-video/fonts/{trans['language']}.ttf"
+            # font_path = f"E:/Python/IITB/text-to-video/fonts/{trans['language']}.ttf"
+            font_path = f"E:/Python/IITB/text-to-video/fonts/font.otf"
             
             subs = pysrt.open(trans['subtitle'])
             subtitle_clips = []
@@ -39,16 +41,15 @@ async def generate_video(_id, translations):
             
             # Combine video and subtitles
             final = CompositeVideoClip([video] + subtitle_clips)
-            clips.append(final)
         
-        # Concatenate all video clips
-        final_video = concatenate_videoclips(clips)
-        output_path = os.path.join("output", "videos", f"{_id}.mp4")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            # Concatenate all video clips
+            output_path = os.path.join("video", "output",{_id}, f"{trans['language']}.mp4")
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                
+            final.write_videofile(output_path, fps=24)
+            output_paths.append(output_path)
         
-        # Write the video file
-        final_video.write_videofile(output_path, fps=24)
-        return output_path
+        return output_paths
 
     except Exception as e:
         print(f"Error in generate_video: {e}")
@@ -61,6 +62,11 @@ if __name__ == "__main__":
             "language": "english",
             "audio": "E:\\Python\\IITB\\text-to-video\\speech\\output\\Prime_Minister_congratulates_all_the_Padma_awardees_of_2025\\english.mp3",
             "subtitle": "E:\\Python\\IITB\\text-to-video\\speech\\output\\Prime_Minister_congratulates_all_the_Padma_awardees_of_2025\\english.srt"
+        },
+        {
+            "language": "hindi",
+            "audio": "E:\\Python\\IITB\\text-to-video\\speech\\output\\Prime_Minister_congratulates_all_the_Padma_awardees_of_2025\\hindi.mp3",
+            "subtitle": "E:\\Python\\IITB\\text-to-video\\speech\\output\\Prime_Minister_congratulates_all_the_Padma_awardees_of_2025\\hindi.srt"
         }
     ]
     
