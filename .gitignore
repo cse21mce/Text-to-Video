@@ -1,4 +1,5 @@
 .venv/
+venv/
 IndicTransToolkit/
 IndicTransToolkit/*
 */__pycache__/*

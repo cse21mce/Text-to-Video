@@ -119,7 +119,7 @@ def check_translation_in_db(_id, lang):
     """
     collection = connect_to_db()
     result = collection.find_one({"_id": ObjectId(_id), f"translations.{lang}": {"$exists": True}})
-    if result and result.get("translations", {}).get(lang, {}).get("status") == "completed":
+    if result and result.get("translations").get(lang).get("status") == "completed":
         log_info(f"Translation for '{lang}' exists.")
         return result["translations"].get(lang)
     log_warning(f"Translation for '{lang}' does not exist.")

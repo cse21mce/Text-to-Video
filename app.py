@@ -8,6 +8,7 @@ import uvicorn
 # User defined modules
 from scrap.scrap import scrape_press_release
 from translate.translate import translate
+from video.create_video import generate_video
 from logger import log_info, log_warning, log_error, log_success
 
 # FastAPI app setup
@@ -70,6 +71,7 @@ async def text_to_video_endpoint(
         # Scrap the press release
         press_release = await scrape_press_release(url)
 
+        _id = press_release["_id"]
         title = press_release["translations"]["english"]["title"]
         content=press_release['translations']['english']['content']
         summary=press_release['translations']['english']['summary']
@@ -80,8 +82,8 @@ async def text_to_video_endpoint(
         # Translate the content 
         log_info(f"Starting translation for Press Release titled: {title}")
 
-        await translate(
-            _id=press_release.get('_id'),
+        translations = await translate(
+            _id=_id,
             title=title,
             content=content,
             summary=summary,
@@ -89,6 +91,17 @@ async def text_to_video_endpoint(
         )
 
         log_success(f"Translation completed for: {title}")
+
+
+        # Generate the Video
+        log_success(f"Video Generation Started for: {title}")
+
+        await generate_video(
+            _id=_id,
+            translations=translations,
+        )
+
+        log_success(f"Video Generation Completed for: {title}")
 
     except Exception as e:
         log_error(f"Text to Video Processing failed: {str(e)}")

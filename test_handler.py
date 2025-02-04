@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import json
+import torch
 
 async def call_text_to_video_api(url):
     """
@@ -64,4 +65,5 @@ async def main():
 
 # Run the async main function
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
+    pass
