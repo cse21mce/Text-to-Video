@@ -43,7 +43,7 @@ async def generate_video(_id, translations):
             final = CompositeVideoClip([video] + subtitle_clips)
         
             # Concatenate all video clips
-            output_path = os.path.join("video", "output",{_id}, f"{trans['language']}.mp4")
+            output_path = os.path.join("video", "output",str(_id), f"{trans['language']}.mp4")
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
                 
             final.write_videofile(output_path, fps=24)

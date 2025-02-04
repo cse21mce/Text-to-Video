@@ -84,6 +84,15 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
     os.makedirs(output_dir, exist_ok=True)  # Ensure output directory exists
     audio_file_path = os.path.join(output_dir, f"{lang}.mp3")
     subtitle_file_path = os.path.join(output_dir, f"{lang}.srt")
+
+
+    # Convert absolute paths to relative paths from the root folder
+    relative_audio_path = os.path.relpath(audio_file_path, curr_folder)
+    relative_subtitle_path = os.path.relpath(subtitle_file_path, curr_folder)
+
+    # Ensure paths use `\` on Windows
+    relative_audio_path = f"\\{relative_audio_path}"
+    relative_subtitle_path = f"\\{relative_subtitle_path}"
     
 
     # Check if the audio and subtitle files already exist
@@ -112,7 +121,7 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
         log_success(f"Completed Speeching of '{title}' for language '{lang}'")
         
         # Return file paths (strings)
-        return {"audio": audio_file_path, "subtitle": subtitle_file_path}
+        return {"audio": relative_audio_path, "subtitle": relative_subtitle_path}
     
     except Exception as e:
         log_error(f"Error during TTS generation: {str(e)}")

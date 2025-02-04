@@ -49,7 +49,7 @@ pyhton app.py
 
 `Input`
 
-```json
+```js
 query={
     url="https://pib.gov.in/PressReleasePage.aspx?PRID=2096307"
 }
