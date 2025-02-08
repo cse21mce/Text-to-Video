@@ -173,7 +173,8 @@ async def scrape_press_release(url: str):
         content_length = len(content.split())
         max_length = min(1024, max(300, content_length // 2))
         min_length = max(20, max(200, content_length // 4))
-        summary = summarize_text(content, max_length, min_length)
+        # summary = summarize_text(content, max_length, min_length)
+        summary = "President of India, Smt Droupadi Murmu honored Dr Zakir Hussain, former President of India, on his birth anniversary at Rashtrapati Bhavan on February 8, 2025."
         log_info(f"Summarization complete: {title}")
 
         img_src = [img.get('src') for img in soup.select('div.innner-page-main-about-us-content-right-part img')] or None

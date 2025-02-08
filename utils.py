@@ -1,6 +1,77 @@
 from bson import ObjectId
 import re
 
+def time_diff(start, end):
+    """Helper function to calculate time difference in seconds."""
+    from datetime import datetime
+    fmt = "%H:%M:%S,%f"
+    start_time = datetime.strptime(start, fmt)
+    end_time = datetime.strptime(end, fmt)
+    return (end_time - start_time).total_seconds()
+
+import re
+from datetime import datetime, timedelta
+
+def time_diff(start, end):
+    """Calculate the difference in seconds between two SRT timestamps."""
+    fmt = "%H:%M:%S,%f"
+    t1 = datetime.strptime(start, fmt)
+    t2 = datetime.strptime(end, fmt)
+    return (t2 - t1).total_seconds()
+
+
+def restructure_srt(input_srt_path, max_words=10, max_duration=3):
+    """
+    Converts word-by-word SRT subtitles into structured blocks and overwrites the existing file.
+
+    - max_words: Maximum words per subtitle block.
+    - max_duration: Maximum time (seconds) per subtitle block.
+    """
+    with open(input_srt_path, "r", encoding="utf-8") as file:
+        content = file.readlines()
+
+    subtitle_entries = []
+    buffer = []
+    start_time = None
+    last_time = None
+
+    time_pattern = re.compile(r"(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})")
+
+    for line in content:
+        line = line.strip()
+        
+        if line.isdigit():  # Skip subtitle index numbers
+            continue
+        
+        if "-->" in line:  # Timestamp line
+            match = time_pattern.search(line)
+            if match:
+                start, end = match.groups()
+                if not start_time:
+                    start_time = start
+                last_time = end
+        elif line:  # Subtitle text
+            buffer.append(line)
+
+        if len(buffer) >= max_words or (start_time and last_time and time_diff(start_time, last_time) >= max_duration):
+            subtitle_entries.append((start_time, last_time, " ".join(buffer)))
+            buffer = []
+            start_time = None
+
+    # Ensure the last subtitle block is added
+    if buffer and start_time and last_time:
+        subtitle_entries.append((start_time, last_time, " ".join(buffer)))
+
+    # Overwrite the existing SRT file with the restructured subtitles
+    with open(input_srt_path, "w", encoding="utf-8") as output_file:
+        for idx, (start, end, text) in enumerate(subtitle_entries, 1):
+            output_file.write(f"{idx}\n{start} --> {end}\n{text}\n\n")
+
+    print(f"Restructured subtitles saved: {input_srt_path}")
+
+
+
+
 def rename(title: str) -> str:
     """
     Convert title to folder-name-friendly format.

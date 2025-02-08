@@ -3,7 +3,7 @@ import os
 
 # User defined modules
 from logger import log_info, log_error, log_success
-from utils import rename
+from utils import rename,restructure_srt
 
 # Your provided LANGUAGES dictionary
 LANGUAGES = {
@@ -118,6 +118,9 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
             
             # Write subtitles to the file after streaming is complete
             srt_file.write(submaker.get_srt())
+        
+        # Reconstruct 
+        restructure_srt(subtitle_file_path);
         log_success(f"Completed Speeching of '{title}' for language '{lang}'")
         
         # Return file paths (strings)

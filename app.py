@@ -82,10 +82,10 @@ async def text_to_video_endpoint(
         # Translate the content 
         log_info(f"Starting translation for Press Release titled: {title}")
 
+        # return translated text and audio
         translations = await translate(
             _id=_id,
             title=title,
-            content=content,
             summary=summary,
             ministry=ministry
         )
