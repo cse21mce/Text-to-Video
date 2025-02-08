@@ -167,14 +167,14 @@ async def scrape_press_release(url: str):
         date_posted = txt_cleaner(soup.select_one('div.ReleaseDateSubHeaddateTime').get_text() if soup.select_one('div.ReleaseDateSubHeaddateTime') else 'No Date Provided')
         ministry = txt_cleaner(soup.select_one('div.MinistryNameSubhead').get_text() if soup.select_one('div.MinistryNameSubhead') else 'No Ministry Provided')
 
-        generated_images = search_images_from_content(content)
 
         log_info(f"Summarizing: {title}")
         content_length = len(content.split())
         max_length = min(1024, max(300, content_length // 2))
         min_length = max(20, max(200, content_length // 4))
         # summary = summarize_text(content, max_length, min_length)
-        summary = "President of India, Smt Droupadi Murmu honored Dr Zakir Hussain, former President of India, on his birth anniversary at Rashtrapati Bhavan on February 8, 2025."
+        summary = "Union Minister for Education, Shri Dharmendra Pradhan, launched 41 new books under the PM YUVA 2.0 scheme at the New Delhi World Book Fair 2025. He praised the young authors, emphasized the scheme's impact on promoting Indian languages and literature, and announced initiatives to further this cause. The event was attended by dignitaries and highlighted the importance of literature in preserving cultural heritage."
+
         log_info(f"Summarization complete: {title}")
 
         img_src = [img.get('src') for img in soup.select('div.innner-page-main-about-us-content-right-part img')] or None
@@ -184,19 +184,23 @@ async def scrape_press_release(url: str):
         tweet_links = [src for src in iframe_src if src.startswith('https://t.co/')]
         
         summary_audio = await generate_tts_audio_and_subtitles(summary, f"{title}", 'english')
+        audio_duration = summary_audio.get("duration")
+
+        generated_images = search_images_from_content(summary,max_chunks=(audio_duration//4 - len(img_src)))
+
+        img_src.extend(item['url'] for item in generated_images)
 
         data = {
             'url': url,
-            'pib_images': img_src,
-            "generated_images": generated_images,
+            'images': img_src,
             'date_posted': date_posted,
             'tweets': tweet_links,
+            'content': content,
             'translations': {
                 'english': {
                     'title': title,
                     'summary': summary,
                     'ministry': ministry,
-                    'content': content,
                     'audio': summary_audio.get("audio"),
                     'subtitle': summary_audio.get("subtitle"),
                     'status': 'completed',

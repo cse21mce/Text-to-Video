@@ -311,7 +311,7 @@ if __name__ == "__main__":
         translations = {
             "english": {
                 "title": "Test Title",
-                "content": "This is a test content for video generation."
+                "summary": "This is a test content for video generation."
             },
             "hindi": {
                 "title": "परीक्षण शीर्षक",

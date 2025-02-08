@@ -1,5 +1,6 @@
 import edge_tts
 import os
+from moviepy.editor import AudioFileClip
 
 # User defined modules
 from logger import log_info, log_error, log_success
@@ -98,7 +99,11 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
     # Check if the audio and subtitle files already exist
     if os.path.exists(audio_file_path) and os.path.exists(subtitle_file_path):
         log_info(f"Audio and subtitles already exist for language '{lang}', returning existing file paths.")
-        return {"audio": audio_file_path, "subtitle": subtitle_file_path}
+        # Get the duration of the audio file
+        audio = AudioFileClip(audio_file_path)
+        duration = int(audio.duration)
+
+        return {"audio": audio_file_path, "subtitle": subtitle_file_path, "duration":duration}  
     
     log_info(f"Started Speeching of '{title}' for language '{lang}'")
 
@@ -119,12 +124,17 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
             # Write subtitles to the file after streaming is complete
             srt_file.write(submaker.get_srt())
         
+
+        # Get the duration of the audio file
+        audio = AudioFileClip(audio_file_path)
+        duration = int(audio.duration)
+
         # Reconstruct 
         restructure_srt(subtitle_file_path);
         log_success(f"Completed Speeching of '{title}' for language '{lang}'")
         
         # Return file paths (strings)
-        return {"audio": relative_audio_path, "subtitle": relative_subtitle_path}
+        return {"audio": relative_audio_path, "subtitle": relative_subtitle_path, "duration":duration }
     
     except Exception as e:
         log_error(f"Error during TTS generation: {str(e)}")

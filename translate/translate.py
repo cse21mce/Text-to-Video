@@ -1,7 +1,6 @@
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from IndicTransToolkit.processor import IndicProcessor 
-from indicnlp.transliterate.unicode_transliterate import UnicodeIndicTransliterator as UTrans
 import os
 import asyncio
 import time
@@ -20,6 +19,7 @@ torch.cuda.empty_cache()
 
 model_name = "ai4bharat/indictrans2-en-indic-1B"
 tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+
 model = AutoModelForSeq2SeqLM.from_pretrained(
     model_name,
     trust_remote_code=True,
@@ -166,8 +166,6 @@ async def translate_and_store(_id, title, summary, ministry, lang):
         return {
                 "language": lang,
                 "title": translated_title,
-                "summary": translated_summary,
-                "ministry": translated_ministry,
                 "audio": summary_audio.get("audio"),
                 "subtitle": summary_audio.get("subtitle"),
                 "status": "completed",

@@ -63,7 +63,7 @@ def google_image_search(prompt: str, num_images: int = 1, prioritize_pib: bool =
     """
     service = build("customsearch", "v1", developerKey=GOOGLE_API_KEY)
 
-    search_query = f"site:{PIB_SITE} {prompt}" if prioritize_pib else prompt
+    search_query = f"site:{PIB_SITE} {prompt}" if prioritize_pib else f"-site:{PIB_SITE} {prompt}"
 
     res = service.cse().list(
         q=search_query,
