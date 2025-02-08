@@ -73,7 +73,6 @@ async def text_to_video_endpoint(
 
         _id = press_release["_id"]
         title = press_release["translations"]["english"]["title"]
-        content=press_release['translations']['english']['content']
         summary=press_release['translations']['english']['summary']
         ministry=press_release['translations']['english']['ministry']
 
@@ -91,7 +90,6 @@ async def text_to_video_endpoint(
         )
 
         log_success(f"Translation completed for: {title}")
-
 
         # Generate the Video
         log_success(f"Video Generation Started for: {title}")

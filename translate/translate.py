@@ -1,6 +1,7 @@
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from IndicTransToolkit.processor import IndicProcessor 
+from indicnlp.transliterate.unicode_transliterate import UnicodeIndicTransliterator as UTrans
 import os
 import asyncio
 import time
@@ -136,7 +137,7 @@ async def translate_and_store(_id, title, summary, ministry, lang):
             translateIn(summary, lang)
         )
         
-        translated_title, translated_ministry, translated_summary = translations
+        translated_title, translated_ministry,  translated_summary = translations
         log_success(f"Translation completed for {lang}")
 
         try:
@@ -163,8 +164,13 @@ async def translate_and_store(_id, title, summary, ministry, lang):
         log_info(f"Stored translation for {title} in {lang}")
 
         return {
+                "language": lang,
+                "title": translated_title,
+                "summary": translated_summary,
+                "ministry": translated_ministry,
                 "audio": summary_audio.get("audio"),
-                "text": summary_audio.get("subtitle"),
+                "subtitle": summary_audio.get("subtitle"),
+                "status": "completed",
             }
 
     except Exception as e:
@@ -185,7 +191,7 @@ async def translate(_id: str, title: str, summary: str, ministry: str):
             nonlocal completed
             async with semaphore:
                 try:
-                    translation_data = await translate_and_store(_id, title,  summary, ministry, tgt_lang)
+                    translation_data = await translate_and_store(_id, title, summary, ministry, tgt_lang)
                     completed += 1
                     log_info(f"Progress: {completed}/{total_languages}")
                     return {**translation_data}
@@ -217,3 +223,8 @@ async def translate(_id: str, title: str, summary: str, ministry: str):
     except Exception as e:
         log_error(f"Critical error: {e}")
         raise e
+    
+
+
+
+    

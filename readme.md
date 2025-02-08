@@ -40,7 +40,7 @@ SEARCH_ENGINE_ID="SEARCH_ENGINE_ID"
 ## Run the API
 
 ```bash
-pyhton app.py
+python app.py
 ```
 
 # Usage
