@@ -1,7 +1,7 @@
 .venv/
 venv/
-.env
 /env/
+/.env/
 /IndicTransToolkit/
 */IndicTransToolkit/
 /IndicTransToolkit/*
@@ -11,5 +11,5 @@ __pycache__/
 .ipynb_checkpoints/
 .vscode/
 */output
-.env
+/.env
 */.env
