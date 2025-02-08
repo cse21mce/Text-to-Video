@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-from IndicTransToolkit.processor import IndicProcessor 
+from IndicTransToolkit import IndicProcessor 
 import os
 import asyncio
 import time
@@ -21,11 +21,10 @@ model_name = "ai4bharat/indictrans2-en-indic-1B"
 tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
 model = AutoModelForSeq2SeqLM.from_pretrained(
-    model_name,
-    trust_remote_code=True,
-    torch_dtype=torch.float16,
-    low_cpu_mem_usage=True,
-    use_cache=True  # Required for gradient checkpointing
+    model_name, 
+    trust_remote_code=True, 
+    torch_dtype=torch.float16, # performance might slightly vary for bfloat16
+    attn_implementation="flash_attention_2"
 ).to(DEVICE)
 
 # Enable gradient checkpointing using new format
@@ -70,6 +69,7 @@ async def translateIn(text, tgt_lang):
             
             try:
                 batch = ip.preprocess_batch(chunk, src_lang=src_lang, tgt_lang=tgt_lang)
+                log_info(f"Preprocessed batch: {batch}")
             except Exception as e:
                 log_error(f"Preprocessing failed: {e}")
                 raise
@@ -96,16 +96,18 @@ async def translateIn(text, tgt_lang):
                         early_stopping=True,
                         no_repeat_ngram_size=2,
                     )
+                    log_info(f"Generated tokens: {generated_tokens}")
 
             try:
                 with tokenizer.as_target_tokenizer():
-                    decoded = tokenizer.batch_decode(
-                        generated_tokens.detach().cpu(),
+                    decoded  = tokenizer.batch_decode(
+                        generated_tokens.detach().cpu().tolist(),
                         skip_special_tokens=True,
                         clean_up_tokenization_spaces=True,
                     )
-                chunk_translations = ip.postprocess_batch(decoded, lang=tgt_lang)
-                translations.extend(chunk_translations)
+                    chunk_translations = ip.postprocess_batch(decoded, lang=tgt_lang)
+                    log_info(f"Postprocessed translations: {chunk_translations}")
+                    translations.extend(chunk_translations)
             except Exception as e:
                 log_error(f"Decoding/postprocessing failed: {e}")
                 raise
@@ -137,7 +139,7 @@ async def translate_and_store(_id, title, summary, ministry, lang):
             translateIn(summary, lang)
         )
         
-        translated_title, translated_ministry,  translated_summary = translations
+        translated_title, translated_ministry, translated_summary = translations
         log_success(f"Translation completed for {lang}")
 
         try:
@@ -164,11 +166,8 @@ async def translate_and_store(_id, title, summary, ministry, lang):
         log_info(f"Stored translation for {title} in {lang}")
 
         return {
-                "language": lang,
-                "title": translated_title,
                 "audio": summary_audio.get("audio"),
-                "subtitle": summary_audio.get("subtitle"),
-                "status": "completed",
+                "text": summary_audio.get("subtitle"),
             }
 
     except Exception as e:
@@ -189,7 +188,7 @@ async def translate(_id: str, title: str, summary: str, ministry: str):
             nonlocal completed
             async with semaphore:
                 try:
-                    translation_data = await translate_and_store(_id, title, summary, ministry, tgt_lang)
+                    translation_data = await translate_and_store(_id, title,  summary, ministry, tgt_lang)
                     completed += 1
                     log_info(f"Progress: {completed}/{total_languages}")
                     return {**translation_data}
@@ -221,8 +220,3 @@ async def translate(_id: str, title: str, summary: str, ministry: str):
     except Exception as e:
         log_error(f"Critical error: {e}")
         raise e
-    
-
-
-
-    
