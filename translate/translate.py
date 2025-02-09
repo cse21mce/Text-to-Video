@@ -1,6 +1,6 @@
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-from IndicTransToolkit import IndicProcessor 
+from IndicTransToolkit.processor import IndicProcessor 
 import os
 import asyncio
 import time
@@ -19,12 +19,12 @@ torch.cuda.empty_cache()
 
 model_name = "ai4bharat/indictrans2-en-indic-1B"
 tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-
 model = AutoModelForSeq2SeqLM.from_pretrained(
-    model_name, 
-    trust_remote_code=True, 
-    torch_dtype=torch.float16, # performance might slightly vary for bfloat16
-    attn_implementation="flash_attention_2"
+    model_name,
+    trust_remote_code=True,
+    torch_dtype=torch.float16,
+    low_cpu_mem_usage=True,
+    use_cache=True  # Required for gradient checkpointing
 ).to(DEVICE)
 
 # Enable gradient checkpointing using new format
@@ -69,7 +69,6 @@ async def translateIn(text, tgt_lang):
             
             try:
                 batch = ip.preprocess_batch(chunk, src_lang=src_lang, tgt_lang=tgt_lang)
-                log_info(f"Preprocessed batch: {batch}")
             except Exception as e:
                 log_error(f"Preprocessing failed: {e}")
                 raise
@@ -96,18 +95,16 @@ async def translateIn(text, tgt_lang):
                         early_stopping=True,
                         no_repeat_ngram_size=2,
                     )
-                    log_info(f"Generated tokens: {generated_tokens}")
 
             try:
                 with tokenizer.as_target_tokenizer():
-                    decoded  = tokenizer.batch_decode(
-                        generated_tokens.detach().cpu().tolist(),
+                    decoded = tokenizer.batch_decode(
+                        generated_tokens.detach().cpu(),
                         skip_special_tokens=True,
                         clean_up_tokenization_spaces=True,
                     )
-                    chunk_translations = ip.postprocess_batch(decoded, lang=tgt_lang)
-                    log_info(f"Postprocessed translations: {chunk_translations}")
-                    translations.extend(chunk_translations)
+                chunk_translations = ip.postprocess_batch(decoded, lang=tgt_lang)
+                translations.extend(chunk_translations)
             except Exception as e:
                 log_error(f"Decoding/postprocessing failed: {e}")
                 raise
