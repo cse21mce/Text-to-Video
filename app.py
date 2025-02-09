@@ -75,6 +75,7 @@ async def text_to_video_endpoint(
         _id = press_release["_id"]
         title = press_release["translations"]["english"]["title"]
         summary=press_release['translations']['english']['summary']
+        content=press_release['translations']['english']['content']
         ministry=press_release['translations']['english']['ministry']
         images = press_release['images']
 
@@ -83,11 +84,14 @@ async def text_to_video_endpoint(
         # Translate the content 
         log_info(f"Starting translation for Press Release titled: {title}")
 
+        print(content)
+
         # return translated text and audio
         translations = await translate(
             _id=_id,
             title=title,
             summary=summary,
+            content=content,
             ministry=ministry
         )
 
@@ -95,10 +99,6 @@ async def text_to_video_endpoint(
 
         # Generate the Video
         # log_success(f"Video Generation Started for: {title}")
-
-        log_error(title)
-        log_error(images)
-        log_error(translations)
 
         # generate_video(
         #     title=title,
@@ -108,14 +108,15 @@ async def text_to_video_endpoint(
 
         # log_success(f"Video Generation Completed for: {title}")
 
+        # Reset the log stream position and stream the logs as the response
+        log_stream.seek(0)
+        return StreamingResponse(log_stream, media_type="text/plain")
+
     except Exception as e:
         log_error(f"Text to Video Processing failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-    # Reset the log stream position and stream the logs as the response
-    log_stream.seek(0)
-    return StreamingResponse(log_stream, media_type="text/plain")
 
 
 if __name__ == "__main__":

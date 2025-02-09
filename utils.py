@@ -212,3 +212,47 @@ LANGUAGES = {
 }
 
 rootFolder = os.path.dirname(os.path.abspath(__file__))
+
+from datetime import datetime
+
+def parse_date_posted(date_posted_str):
+    # Example input: "Posted On: 24 AUG 2024 9:48AM by PIB Delhi"
+    date_pattern = r"Posted On: (\d{2}) (\w{3}) (\d{4}) (\d{1,2}):(\d{2})(AM|PM)"
+    import re
+    match = re.match(date_pattern, date_posted_str)
+
+    # If the input string doesn't match the pattern, return None or raise an error
+    if not match:
+        print(f"Invalid date format: {date_posted_str}")
+        return None  # or raise ValueError("Invalid date format")
+
+    # Extract components
+    day, month, year, hour, minute, period = match.groups()
+
+    # Convert month abbreviation to number
+    month_map = {
+        "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+        "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12
+    }
+    month_number = month_map[month.upper()]  # Ensure month is uppercase
+
+    # Convert 12-hour format to 24-hour format
+    hour = int(hour)
+    if period == "PM" and hour < 12:
+        hour += 12
+    if period == "AM" and hour == 12:
+        hour = 0
+
+    # Create and return the datetime object
+    return datetime(
+        year=int(year),
+        month=month_number,
+        day=int(day),
+        hour=hour,
+        minute=int(minute)
+    )
+
+# Example usage
+date_str = "Posted On: 24 AUG 2024 9:48AM by PIB Delhi"
+parsed_date = parse_date_posted(date_str)
+print(parsed_date)  # Output: 2024-08-24 09:48:00

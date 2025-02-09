@@ -109,7 +109,7 @@ async def translateIn(text, tgt_lang):
         log_error(f"Translation error for {tgt_lang}: {str(e)}")
         raise
 
-async def translate_and_store(_id, title, summary, ministry, lang):
+async def translate_and_store(_id, title, summary, content, ministry, lang):
     try:
         translation = check_translation_in_db(_id, lang)
         if translation:
@@ -122,10 +122,11 @@ async def translate_and_store(_id, title, summary, ministry, lang):
         translations = await asyncio.gather(
             translateIn(title, lang),
             translateIn(ministry, lang),
-            translateIn(summary, lang)
+            translateIn(summary, lang),
+            translateIn(content, lang)
         )
         
-        translated_title, translated_ministry, translated_summary = translations
+        translated_title, translated_ministry, translated_summary, translated_content = translations
         log_success(f"Translation completed for {lang}")
 
         try:
@@ -142,6 +143,7 @@ async def translate_and_store(_id, title, summary, ministry, lang):
             {
                 "title": translated_title,
                 "summary": translated_summary,
+                "content": translated_content,
                 "ministry": translated_ministry,
                 "audio": summary_audio.get("audio"),
                 "subtitle": summary_audio.get("subtitle"),
@@ -152,8 +154,10 @@ async def translate_and_store(_id, title, summary, ministry, lang):
         log_info(f"Stored translation for {title} in {lang}")
 
         return {
+                "lang": lang,
                 "audio": summary_audio.get("audio"),
                 "text": summary_audio.get("subtitle"),
+                "status": "completed",
             }
 
     except Exception as e:
@@ -163,7 +167,7 @@ async def translate_and_store(_id, title, summary, ministry, lang):
 
 MAX_CONCURRENT_TRANSLATIONS = 3
 
-async def translate(_id: str, title: str, summary: str, ministry: str):
+async def translate(_id: str, title: str, summary: str, content: str, ministry: str):
     try:
         start_time = time.time()
         total_languages = len(tgt_langs)
@@ -174,7 +178,7 @@ async def translate(_id: str, title: str, summary: str, ministry: str):
             nonlocal completed
             async with semaphore:
                 try:
-                    translation_data = await translate_and_store(_id, title,  summary, ministry, tgt_lang)
+                    translation_data = await translate_and_store(_id, title, summary, content, ministry, tgt_lang)
                     completed += 1
                     log_info(f"Progress: {completed}/{total_languages}")
                     return {**translation_data}
@@ -185,6 +189,7 @@ async def translate(_id: str, title: str, summary: str, ministry: str):
         translation_tasks = [controlled_translate(lang) for lang in tgt_langs]
         results = await asyncio.gather(*translation_tasks, return_exceptions=True)
 
+        print(results)
         
         successful = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "completed")
         failed = total_languages - successful

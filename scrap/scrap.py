@@ -9,7 +9,7 @@ from urllib3.util.retry import Retry
 import asyncio
 
 # User defined modules
-from utils import convert_object_ids
+from utils import convert_object_ids,parse_date_posted
 from database.db import store_scraped_data_in_db, is_url_scraped
 from summarize.summarize import summarize_text
 from speech.tts import generate_tts_audio_and_subtitles
@@ -197,12 +197,12 @@ async def scrape_press_release(url: str):
         data = {
             'url': url,
             'images': img_src,
-            'date_posted': date_posted,
+            'date_posted': parse_date_posted(date_posted),
             'tweets': tweet_links,
-            'content': content,
             'translations': {
                 'english': {
                     'title': title,
+                    'content': content,
                     'summary': summary,
                     'ministry': ministry,
                     'audio': summary_audio.get("audio"),
