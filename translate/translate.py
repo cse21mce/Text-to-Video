@@ -10,7 +10,7 @@ from torch.amp import autocast
 from database.db import store_translation_in_db, check_translation_in_db, update_translation_status
 from speech.tts import generate_tts_audio_and_subtitles
 from logger import log_info, log_error, log_warning, log_success
-from utils import split_sentences
+from utils import split_sentences,tgt_langs
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128,garbage_collection_threshold:0.8"
 
@@ -33,17 +33,6 @@ model._set_gradient_checkpointing(False)
 ip = IndicProcessor(inference=True)
 
 src_lang = "eng_Latn"
-tgt_langs = {
-    "hindi": "hin_Deva",
-    "urdu": "urd_Arab",
-    "gujrati": "guj_Gujr",
-    "marathi": "mar_Deva",
-    "telugu": "tel_Telu",
-    "kannada": "kan_Knda",
-    "malayalam": "mal_Mlym",
-    "tamil": "tam_Taml",
-    "bengali": "ben_Beng",
-}
 
 async def translateIn(text, tgt_lang):
     try:

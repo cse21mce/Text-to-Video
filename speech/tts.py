@@ -4,71 +4,7 @@ from moviepy.editor import AudioFileClip
 
 # User defined modules
 from logger import log_info, log_error, log_success
-from utils import rename,restructure_srt
-
-# Your provided LANGUAGES dictionary
-LANGUAGES = {
-    "english": {
-        "voice": "en-IN-NeerjaNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "hindi": {
-        "voice": "hi-IN-SwaraNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "urdu": {
-        "voice": "ur-PK-UzmaNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "gujrati": {
-        "voice": "gu-IN-NiranjanNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "marathi": {
-        "voice": "mr-IN-AarohiNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "telugu": {
-        "voice": "te-IN-MohanNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "kannada": {
-        "voice": "kn-IN-GaganNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "malayalam": {
-        "voice": "ml-IN-MidhunNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "tamil": {
-        "voice": "ta-IN-PallaviNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-    "bengali": {
-        "voice": "bn-IN-TanishaaNeural",
-        "rate": "+5%",
-        "pitch": "-5Hz",
-        "generate_subtitles": True
-    },
-}
+from utils import rename,restructure_srt,LANGUAGES,rootFolder
 
 async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
     """Generate TTS using edge-tts stream and save audio and subtitles."""
@@ -80,16 +16,15 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
     pitch = LANGUAGES[lang]["pitch"]
 
     # Define output files
-    curr_folder = os.path.dirname(os.path.abspath(__file__))  # Get the current file's directory (rootFolder)
-    output_dir = os.path.join(curr_folder, "output", rename(title))
+    output_dir = os.path.join(rootFolder, "output", rename(title))
     os.makedirs(output_dir, exist_ok=True)  # Ensure output directory exists
     audio_file_path = os.path.join(output_dir, f"{lang}.mp3")
     subtitle_file_path = os.path.join(output_dir, f"{lang}.srt")
 
 
     # Convert absolute paths to relative paths from the root folder
-    relative_audio_path = os.path.relpath(audio_file_path, curr_folder)
-    relative_subtitle_path = os.path.relpath(subtitle_file_path, curr_folder)
+    relative_audio_path = os.path.relpath(audio_file_path, rootFolder)
+    relative_subtitle_path = os.path.relpath(subtitle_file_path, rootFolder)
 
     # Ensure paths use `\` on Windows
     relative_audio_path = f"\\{relative_audio_path}"

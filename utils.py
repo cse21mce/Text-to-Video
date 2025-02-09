@@ -1,5 +1,6 @@
 from bson import ObjectId
 import re
+import os
 
 def time_diff(start, end):
     """Helper function to calculate time difference in seconds."""
@@ -134,3 +135,83 @@ def save_html_to_file(soup):
         f.write(str(soup.prettify()))
     print(f"HTML content saved to {filepath}")
     return filepath
+
+
+
+tgt_langs = {
+    "hindi": "hin_Deva",
+    "urdu": "urd_Arab",
+    "gujrati": "guj_Gujr",
+    "marathi": "mar_Deva",
+    "telugu": "tel_Telu",
+    "kannada": "kan_Knda",
+    "malayalam": "mal_Mlym",
+    "tamil": "tam_Taml",
+    "bengali": "ben_Beng",
+}
+
+# Your provided LANGUAGES dictionary
+LANGUAGES = {
+    "english": {
+        "voice": "en-IN-NeerjaNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "hindi": {
+        "voice": "hi-IN-SwaraNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "urdu": {
+        "voice": "ur-PK-UzmaNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "gujrati": {
+        "voice": "gu-IN-NiranjanNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "marathi": {
+        "voice": "mr-IN-AarohiNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "telugu": {
+        "voice": "te-IN-MohanNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "kannada": {
+        "voice": "kn-IN-GaganNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "malayalam": {
+        "voice": "ml-IN-MidhunNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "tamil": {
+        "voice": "ta-IN-PallaviNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+    "bengali": {
+        "voice": "bn-IN-TanishaaNeural",
+        "rate": "+5%",
+        "pitch": "-5Hz",
+        "generate_subtitles": True
+    },
+}
+
+rootFolder = os.path.dirname(os.path.abspath(__file__))
