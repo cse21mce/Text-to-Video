@@ -13,7 +13,7 @@ from utils import convert_object_ids
 from database.db import store_scraped_data_in_db, is_url_scraped
 from summarize.summarize import summarize_text
 from speech.tts import generate_tts_audio_and_subtitles
-from logger import log_info, log_warning, log_error  
+from logger import log_info, log_warning, log_error, log_success 
 from image.image_search import search_images_from_content
 from image.capture_iframe import capture_iframe
 # from utils import save_html_to_file
@@ -172,8 +172,8 @@ async def scrape_press_release(url: str):
         content_length = len(content.split())
         max_length = min(1024, max(300, content_length // 2))
         min_length = max(20, max(200, content_length // 4))
-        # summary = summarize_text(content, max_length, min_length)
-        summary = "Union Minister for Education, Shri Dharmendra Pradhan, launched 41 new books under the PM YUVA 2.0 scheme at the New Delhi World Book Fair 2025. He praised the young authors, emphasized the scheme's impact on promoting Indian languages and literature, and announced initiatives to further this cause. The event was attended by dignitaries and highlighted the importance of literature in preserving cultural heritage."
+        summary = summarize_text(content, max_length, min_length)
+        # summary = "Union Minister for Education, Shri Dharmendra Pradhan, launched 41 new books under the PM YUVA 2.0 scheme at the New Delhi World Book Fair 2025. He praised the young authors, emphasized the scheme's impact on promoting Indian languages and literature, and announced initiatives to further this cause. The event was attended by dignitaries and highlighted the importance of literature in preserving cultural heritage."
 
         log_info(f"Summarization complete: {title}")
 
@@ -183,8 +183,12 @@ async def scrape_press_release(url: str):
 
         tweet_links = [src for src in iframe_src if src.startswith('https://t.co/')]
         
+        log_info(f"Started Speeching of '{title}' for language 'english'")
+
         summary_audio = await generate_tts_audio_and_subtitles(summary, f"{title}", 'english')
         audio_duration = summary_audio.get("duration")
+        
+        log_success(f"Completed Speeching of '{title}' for language 'english'")
 
         generated_images = search_images_from_content(summary,max_chunks=(audio_duration//4 - len(img_src)))
 

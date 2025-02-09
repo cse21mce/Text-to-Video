@@ -186,7 +186,7 @@ async def translate(_id: str, title: str, summary: str, ministry: str):
         results = await asyncio.gather(*translation_tasks, return_exceptions=True)
 
         
-        successful = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "success")
+        successful = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "completed")
         failed = total_languages - successful
         
         execution_time = time.time() - start_time

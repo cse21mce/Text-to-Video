@@ -94,15 +94,19 @@ async def text_to_video_endpoint(
         log_success(f"Translation completed for: {title}")
 
         # Generate the Video
-        log_success(f"Video Generation Started for: {title}")
+        # log_success(f"Video Generation Started for: {title}")
 
-        generate_video(
-            _id=_id,
-            translations=translations,
-            images=images
-        )
+        log_error(title)
+        log_error(images)
+        log_error(translations)
 
-        log_success(f"Video Generation Completed for: {title}")
+        # generate_video(
+        #     title=title,
+        #     translations=translations,
+        #     images=images
+        # )
+
+        # log_success(f"Video Generation Completed for: {title}")
 
     except Exception as e:
         log_error(f"Text to Video Processing failed: {str(e)}")

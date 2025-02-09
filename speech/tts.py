@@ -29,7 +29,8 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
     # Ensure paths use `\` on Windows
     relative_audio_path = f"\\{relative_audio_path}"
     relative_subtitle_path = f"\\{relative_subtitle_path}"
-    
+
+
 
     # Check if the audio and subtitle files already exist
     if os.path.exists(audio_file_path) and os.path.exists(subtitle_file_path):
@@ -66,6 +67,7 @@ async def generate_tts_audio_and_subtitles(text: str, title: str, lang: str):
 
         # Reconstruct 
         restructure_srt(subtitle_file_path);
+        
         log_success(f"Completed Speeching of '{title}' for language '{lang}'")
         
         # Return file paths (strings)

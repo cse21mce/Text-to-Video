@@ -10,6 +10,7 @@ __pycache__/
 */.ipynb_checkpoints
 .ipynb_checkpoints/
 .vscode/
-*/output
+/output
 /.env
 */.env
+/test

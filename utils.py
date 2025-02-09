@@ -68,9 +68,6 @@ def restructure_srt(input_srt_path, max_words=10, max_duration=3):
         for idx, (start, end, text) in enumerate(subtitle_entries, 1):
             output_file.write(f"{idx}\n{start} --> {end}\n{text}\n\n")
 
-    print(f"Restructured subtitles saved: {input_srt_path}")
-
-
 
 
 def rename(title: str) -> str:
