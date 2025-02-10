@@ -219,6 +219,7 @@ def generate_video(title, images, translations):
             clip.close()
 
         log_success(f"Video generation completed for {language}: {output_video_path}")
+        
         output_videos.append(output_video_path)
 
     log_info(f"Video generation completed for all translations in {title}")

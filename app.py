@@ -94,6 +94,7 @@ async def text_to_video_endpoint(
         log_success(f"Translation completed for: {title}")
 
         log_info(f"Video generation started for: {title}")
+        print(translations)
 
         videos = await generate_video(
             title=title,

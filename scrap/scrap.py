@@ -190,9 +190,9 @@ async def scrape_press_release(url: str):
         
         log_success(f"Completed Speeching of '{title}' for language 'english'")
 
-        generated_images = search_images_from_content(summary,max_chunks=(audio_duration//4*2 - len(img_src)))
+        generated_images = search_images_from_content(summary,max_chunks=(audio_duration//4 - len(img_src)))
 
-        img_src.extend(img for img in generated_images)
+        img_src.extend(item['url'] for item in generated_images if not item['url'].startswith('https://lookaside'))
 
         data = {
             'url': url,
@@ -205,8 +205,8 @@ async def scrape_press_release(url: str):
                     'content': content,
                     'summary': summary,
                     'ministry': ministry,
-                    'audio': summary_audio.get("audio"),
-                    'subtitle': summary_audio.get("subtitle"),
+                    'audio': summary_audio.get("audio").lstrip('\\'),
+                    'subtitle': summary_audio.get("subtitle").lstrip('\\'),
                     'status': 'completed',
                 }
             },
