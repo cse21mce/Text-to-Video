@@ -2,16 +2,15 @@ from bson import ObjectId
 import re
 import os
 
+from datetime import datetime
+import pytz  # Install pytz using `pip install pytz`
+
 def time_diff(start, end):
     """Helper function to calculate time difference in seconds."""
-    from datetime import datetime
     fmt = "%H:%M:%S,%f"
     start_time = datetime.strptime(start, fmt)
     end_time = datetime.strptime(end, fmt)
     return (end_time - start_time).total_seconds()
-
-import re
-from datetime import datetime, timedelta
 
 def time_diff(start, end):
     """Calculate the difference in seconds between two SRT timestamps."""
@@ -213,7 +212,6 @@ LANGUAGES = {
 
 rootFolder = os.path.dirname(os.path.abspath(__file__))
 
-from datetime import datetime
 
 def parse_date_posted(date_posted_str):
     # Example input: "Posted On: 24 AUG 2024 9:48AM by PIB Delhi"
@@ -243,8 +241,8 @@ def parse_date_posted(date_posted_str):
     if period == "AM" and hour == 12:
         hour = 0
 
-    # Create and return the datetime object
-    return datetime(
+    # Create a naive datetime object (without timezone)
+    naive_datetime = datetime(
         year=int(year),
         month=month_number,
         day=int(day),
@@ -252,7 +250,13 @@ def parse_date_posted(date_posted_str):
         minute=int(minute)
     )
 
+    # Localize the datetime object to IST (UTC+5:30)
+    ist_timezone = pytz.timezone("Asia/Kolkata")
+    ist_datetime = ist_timezone.localize(naive_datetime)
+
+    return ist_datetime
+
 # Example usage
 date_str = "Posted On: 24 AUG 2024 9:48AM by PIB Delhi"
 parsed_date = parse_date_posted(date_str)
-print(parsed_date)  # Output: 2024-08-24 09:48:00
+print(parsed_date)  # Output: 2024-08-24 09:48:00+05:30

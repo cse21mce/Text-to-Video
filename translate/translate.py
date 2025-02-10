@@ -145,8 +145,8 @@ async def translate_and_store(_id, title, summary, content, ministry, lang):
                 "summary": translated_summary,
                 "content": translated_content,
                 "ministry": translated_ministry,
-                "audio": summary_audio.get("audio"),
-                "subtitle": summary_audio.get("subtitle"),
+                "audio": summary_audio.get("audio").lstrip('\\'),
+                "subtitle": summary_audio.get("subtitle").lstrip('\\'),
                 "status": "completed",
             }
         )
@@ -156,7 +156,7 @@ async def translate_and_store(_id, title, summary, content, ministry, lang):
         return {
                 "lang": lang,
                 "audio": summary_audio.get("audio"),
-                "text": summary_audio.get("subtitle"),
+                "subtitle": summary_audio.get("subtitle"),
                 "status": "completed",
             }
 
@@ -189,8 +189,6 @@ async def translate(_id: str, title: str, summary: str, content: str, ministry: 
         translation_tasks = [controlled_translate(lang) for lang in tgt_langs]
         results = await asyncio.gather(*translation_tasks, return_exceptions=True)
 
-        print(results)
-        
         successful = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "completed")
         failed = total_languages - successful
         
