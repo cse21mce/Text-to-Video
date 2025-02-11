@@ -67,8 +67,7 @@ async def text_to_video_endpoint(
         summary = press_release["translations"]["english"]["summary"]
         content = press_release["translations"]["english"]["content"]
         ministry = press_release["translations"]["english"]["ministry"]
-        audio = press_release["translations"]["english"]["audio"]
-        subtitle = press_release["translations"]["english"]["subtitle"]
+        video = press_release["translations"]["english"]["video"]
         images = press_release["images"]
 
         log_success(f"Scraped press release titled: {title}")
@@ -85,32 +84,17 @@ async def text_to_video_endpoint(
             ministry=ministry
         )
 
-        # translations.append(
-        #     {
-        #         "lang": 'english',
-        #         "audio": press_release["translations"]["english"]["audio"],
-        #         "subtitle": press_release["translations"]["english"]["subtitle"],
-        #     }
-        # )
+        result.append(
+            {
+                "lang": 'english',
+                "video": video,
+            }
+        )
+        log_success(f"Translation completed for: {title}");
 
-        log_success(f"Translation completed for: {title}")
 
-        # log_info(f"Video generation started for: {title}")
-        # print(translations)
-
-        # videos = await generate_video(
-        #     title=title,
-        #     images=images,
-        #     translations=translations
-        # )
-
-        # log_success(f"Video generation completed for: {title}")
-
-        # return {
-        #     "title": title,
-        #     "videos": videos,
-        # }
         log_success(f"Text to Video Processing completed for: {result}")
+
         return {"message": "Success","id":_id,"result":result}  # Placeholder for now
 
     except Exception as e:
