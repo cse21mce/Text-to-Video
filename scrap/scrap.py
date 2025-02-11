@@ -9,13 +9,14 @@ from urllib3.util.retry import Retry
 import asyncio
 
 # User defined modules
-from utils import convert_object_ids,parse_date_posted
+from utils import convert_object_ids,parse_date_posted,rename
 from database.db import store_scraped_data_in_db, is_url_scraped
 from summarize.summarize import summarize_text
 from speech.tts import generate_tts_audio_and_subtitles
 from logger import log_info, log_warning, log_error, log_success 
 from image.image_search import search_images_from_content
 from image.capture_iframe import capture_iframe
+from video.create_video import create_video
 # from utils import save_html_to_file
 
 
@@ -183,16 +184,25 @@ async def scrape_press_release(url: str):
 
         tweet_links = [src for src in iframe_src if src.startswith('https://t.co/')]
         
+
+        generated_images = search_images_from_content(summary,max_chunks=(audio_duration//4 - len(img_src)))
+
+        img_src.extend(item['url'] for item in generated_images if not item['url'].startswith('https://lookaside'))
+
         log_info(f"Started Speeching of '{title}' for language 'english'")
 
         summary_audio = await generate_tts_audio_and_subtitles(summary, f"{title}", 'english')
         audio_duration = summary_audio.get("duration")
         
         log_success(f"Completed Speeching of '{title}' for language 'english'")
+        
+        log_info(f"Started Video Generation of '{title}' for language 'english'")
 
-        generated_images = search_images_from_content(summary,max_chunks=(audio_duration//4 - len(img_src)))
+        video_path = f"output/{rename(title)}/english.mp4"
 
-        img_src.extend(item['url'] for item in generated_images if not item['url'].startswith('https://lookaside'))
+        create_video(images=img_src,audio_path=summary_audio.get("audio").lstrip('\\'),srt_path=summary_audio.get("subtitle").lstrip('\\'),ministry=ministry, output_path=video_path)
+
+        log_success(f"Completed Video Generation of '{title}' for language 'english'")
 
         data = {
             'url': url,
@@ -205,8 +215,9 @@ async def scrape_press_release(url: str):
                     'content': content,
                     'summary': summary,
                     'ministry': ministry,
-                    'audio': summary_audio.get("audio").lstrip('\\'),
-                    'subtitle': summary_audio.get("subtitle").lstrip('\\'),
+                    'audio': summary_audio.get("audio").lstrip('\\').replace('\\','/'),
+                    'video': video_path,
+                    'subtitle': summary_audio.get("subtitle").lstrip('\\').replace('\\','/'),
                     'status': 'completed',
                 }
             },

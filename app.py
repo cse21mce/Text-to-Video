@@ -9,7 +9,6 @@ import os
 from scrap.scrap import scrape_press_release
 from translate.translate import translate
 from logger import log_info, log_warning, log_error, log_success, log_generator
-from video.video import generate_video
 
 # FastAPI app setup
 app = FastAPI(
@@ -68,6 +67,8 @@ async def text_to_video_endpoint(
         summary = press_release["translations"]["english"]["summary"]
         content = press_release["translations"]["english"]["content"]
         ministry = press_release["translations"]["english"]["ministry"]
+        audio = press_release["translations"]["english"]["audio"]
+        subtitle = press_release["translations"]["english"]["subtitle"]
         images = press_release["images"]
 
         log_success(f"Scraped press release titled: {title}")
@@ -75,39 +76,42 @@ async def text_to_video_endpoint(
         # Translate the content
         log_info(f"Starting translation for Press Release titled: {title}")
 
-        translations = await translate(
+        result = await translate(
             _id=_id,
+            images=images,
             title=title,
             summary=summary,
             content=content,
             ministry=ministry
         )
 
-        translations.append(
-            {
-                "lang": 'english',
-                "audio": press_release["translations"]["english"]["audio"],
-                "subtitle": press_release["translations"]["english"]["subtitle"],
-            }
-        )
+        # translations.append(
+        #     {
+        #         "lang": 'english',
+        #         "audio": press_release["translations"]["english"]["audio"],
+        #         "subtitle": press_release["translations"]["english"]["subtitle"],
+        #     }
+        # )
 
         log_success(f"Translation completed for: {title}")
 
-        log_info(f"Video generation started for: {title}")
-        print(translations)
+        # log_info(f"Video generation started for: {title}")
+        # print(translations)
 
-        videos = await generate_video(
-            title=title,
-            images=images,
-            translations=translations
-        )
+        # videos = await generate_video(
+        #     title=title,
+        #     images=images,
+        #     translations=translations
+        # )
 
-        log_success(f"Video generation completed for: {title}")
+        # log_success(f"Video generation completed for: {title}")
 
-        return {
-            "title": title,
-            "videos": videos,
-        }
+        # return {
+        #     "title": title,
+        #     "videos": videos,
+        # }
+        log_success(f"Text to Video Processing completed for: {result}")
+        return {"message": "Success","id":_id,"result":result}  # Placeholder for now
 
     except Exception as e:
         log_error(f"Text to Video Processing failed: {str(e)}")

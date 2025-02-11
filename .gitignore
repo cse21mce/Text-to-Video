@@ -10,8 +10,10 @@ __pycache__/
 */.ipynb_checkpoints
 .ipynb_checkpoints/
 .vscode/
+/downloaded_images/
 /output
 /output/*
 /.env
 */.env
 /test
+/*.mp3

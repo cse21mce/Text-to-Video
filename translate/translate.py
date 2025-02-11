@@ -10,7 +10,8 @@ from torch.amp import autocast
 from database.db import store_translation_in_db, check_translation_in_db, update_translation_status
 from speech.tts import generate_tts_audio_and_subtitles
 from logger import log_info, log_error, log_warning, log_success
-from utils import split_sentences,tgt_langs
+from utils import split_sentences,tgt_langs,rename
+from video.create_video import create_video
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128,garbage_collection_threshold:0.8"
 
@@ -109,7 +110,7 @@ async def translateIn(text, tgt_lang):
         log_error(f"Translation error for {tgt_lang}: {str(e)}")
         raise
 
-async def translate_and_store(_id, title, summary, content, ministry, lang):
+async def translate_and_store(_id, title,images, summary, content, ministry, lang):
     try:
         translation = check_translation_in_db(_id, lang)
         if translation:
@@ -135,7 +136,10 @@ async def translate_and_store(_id, title, summary, content, ministry, lang):
             log_warning(f"TTS failed for {lang}: {e}")
             summary_audio = {"audio": None, "subtitle": None}
 
-        translations.append(summary_audio)
+        
+        video_path = f"output/{rename(title)}/{lang}.mp4"
+
+        create_video(images=images,audio_path=summary_audio.get("audio").lstrip('\\'),srt_path=summary_audio.get("subtitle").lstrip('\\'),ministry=ministry, output_path=video_path)
 
         store_translation_in_db(
             _id,
@@ -145,8 +149,9 @@ async def translate_and_store(_id, title, summary, content, ministry, lang):
                 "summary": translated_summary,
                 "content": translated_content,
                 "ministry": translated_ministry,
-                "audio": summary_audio.get("audio").lstrip('\\'),
-                "subtitle": summary_audio.get("subtitle").lstrip('\\'),
+                "audio": summary_audio.get("audio").lstrip('\\').replace('\\','/'),
+                "video": video_path,
+                "subtitle": summary_audio.get("subtitle").lstrip('\\').replace('\\','/'),
                 "status": "completed",
             }
         )
@@ -155,8 +160,7 @@ async def translate_and_store(_id, title, summary, content, ministry, lang):
 
         return {
                 "lang": lang,
-                "audio": summary_audio.get("audio"),
-                "subtitle": summary_audio.get("subtitle"),
+                "video": video_path,
                 "status": "completed",
             }
 
@@ -167,7 +171,7 @@ async def translate_and_store(_id, title, summary, content, ministry, lang):
 
 MAX_CONCURRENT_TRANSLATIONS = 3
 
-async def translate(_id: str, title: str, summary: str, content: str, ministry: str):
+async def translate(_id: str,images, title: str, summary: str, content: str, ministry: str):
     try:
         start_time = time.time()
         total_languages = len(tgt_langs)
@@ -178,7 +182,7 @@ async def translate(_id: str, title: str, summary: str, content: str, ministry: 
             nonlocal completed
             async with semaphore:
                 try:
-                    translation_data = await translate_and_store(_id, title, summary, content, ministry, tgt_lang)
+                    translation_data = await translate_and_store(_id, title,images, summary, content, ministry, tgt_lang)
                     completed += 1
                     log_info(f"Progress: {completed}/{total_languages}")
                     return {**translation_data}

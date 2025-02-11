@@ -1,328 +1,239 @@
 import os
-import subprocess
-from sys import platform
-from moviepy.editor import ImageClip, concatenate_videoclips, CompositeVideoClip, AudioFileClip, CompositeAudioClip, VideoFileClip, TextClip
-from moviepy.video.fx.all import crop, speedx
-from moviepy.audio.fx.all import volumex
-from PIL import Image
-from gtts import gTTS
+import moviepy.editor as mp
+import requests
+import pysrt
+from PIL import Image,ImageFilter
 import numpy as np
-import datetime
-from typing import Dict, List
-import asyncio
-from pathlib import Path
 
+# User defined modules
 from moviepy.config import change_settings
+from logger import log_info, log_warning, log_success
+from utils import ensure_directory_exists
 
 # Set ImageMagick binary path (required for TextClip on Windows)
 change_settings({"IMAGEMAGICK_BINARY": r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\magick.exe"})
-
-# Set FFmpeg path based on platform
-if platform == "linux":
-    os.environ['FFMPEG_BINARY'] = '/usr/bin/ffmpeg'
-elif platform == "win32":
-    ffmpeg_path = r"C:\ffmpeg\bin\ffmpeg.exe"
-    if os.path.exists(ffmpeg_path):
-        os.environ['FFMPEG_BINARY'] = ffmpeg_path
+def time_to_seconds(t):
+    """Convert datetime.time object to seconds"""
+    return t.hour * 3600 + t.minute * 60 + t.second + t.microsecond / 1000000
 
 
-def resize_image_with_imagemagick(input_path: str, output_path: str, size: tuple) -> None:
-    """
-    Resize an image using ImageMagick.
-
-    Args:
-        input_path (str): Path to the input image.
-        output_path (str): Path to save the resized image.
-        size (tuple): Target size as (width, height).
-    """
-    command = [
-        'magick', input_path,
-        '-resize', f'{size[0]}x{size[1]}^',
-        '-gravity', 'center',
-        '-extent', f'{size[0]}x{size[1]}',
-        output_path
-    ]
-    subprocess.run(command, check=True)
+INTRO_PATH = "assets/intro.mp4"
+HEADER_PATH = "assets/headers"
+BGM_PATH = "assets/bgm.mp3"
 
 
-def blur_image_with_imagemagick(input_path: str, output_path: str, blur_radius: int = 10) -> None:
-    """
-    Blur an image using ImageMagick.
+def download_image(url, save_path):
+    """Download an image from a URL if not already present."""
+    if os.path.exists(save_path):
+        log_warning(f"Image already exists: {save_path}")
+        return save_path
+    
+    response = requests.get(url, stream=True)
+    if response.status_code == 200:
+        with open(save_path, 'wb') as file:
+            for chunk in response.iter_content(1024):
+                file.write(chunk)
+        log_success(f"Downloaded: {save_path}")
+    else:
+        log_info(f"Failed to download {url}")
+    return save_path
 
-    Args:
-        input_path (str): Path to the input image.
-        output_path (str): Path to save the blurred image.
-        blur_radius (int): Blur intensity. Default is 10.
-    """
-    command = [
-        'magick', input_path,
-        '-blur', f'0x{blur_radius}',
-        output_path
-    ]
-    subprocess.run(command, check=True)
-
-
-def zoom_effect(image_path: str, duration: float, resolution: tuple, mode: str = 'in', speed: float = 2.5, fps: int = 24) -> ImageClip:
-    """
-    Create a zoom effect on an image.
-
-    Args:
-        image_path (str): Path to the input image.
-        duration (float): Duration of the zoom effect.
-        resolution (tuple): Video resolution as (width, height).
-        mode (str): Zoom mode ('in' or 'out'). Default is 'in'.
-        speed (float): Zoom speed. Default is 2.5.
-        fps (int): Frames per second. Default is 24.
-
-    Returns:
-        ImageClip: A MoviePy ImageClip with the zoom effect.
-    """
-    temp_resized_path = f"temp_resized_{hash(image_path)}.png"
-    resize_image_with_imagemagick(image_path, temp_resized_path, resolution)
-
-    img = ImageClip(temp_resized_path).set_duration(duration)
-    w, h = resolution
-    zoom_factor = 1.5 if mode == 'in' else 1 / 1.5
-
-    def effect(get_frame, t):
-        zoom = 1 + (zoom_factor - 1) * t / duration
-        size = (int(w * zoom), int(h * zoom))
-        frame = get_frame(t)
-        pil_frame = Image.fromarray(frame)
-        pil_frame = pil_frame.resize(size, Image.Resampling.LANCZOS)
-        left = (size[0] - w) // 2
-        top = (size[1] - h) // 2
-        pil_frame = pil_frame.crop((left, top, left + w, top + h))
-        return np.array(pil_frame)
-
-    os.remove(temp_resized_path)
-    return img.fl(effect, apply_to=['mask'])
-
-
-def create_clip(image_path: str, text: str, duration: float, resolution: tuple, font_path: str = None, font_size: int = 43) -> CompositeVideoClip:
-    """
-    Create a single video clip with image, text, and audio.
-
-    Args:
-        image_path (str): Path to the image.
-        text (str): Text to display on the clip.
-        duration (float): Duration of the clip.
-        resolution (tuple): Video resolution as (width, height).
-        font_path (str): Path to the font file. Default is None.
-        font_size (int): Font size. Default is 43.
-
-    Returns:
-        CompositeVideoClip: A MoviePy CompositeVideoClip.
-    """
-    temp_audio = f"temp_audio_{hash(text)}.mp3"
-    gTTS(text, lang='en').save(temp_audio)
-
-    audio_clip = AudioFileClip(temp_audio)
-    audio_clip = audio_clip.fx(volumex, 1.4).fx(speedx, 1.05)
-
-    final_duration = max(duration, audio_clip.duration + 0.5)
-
-    try:
-        base = ImageClip('./background.png').set_duration(final_duration)
-    except:
-        base = ImageClip(np.zeros((resolution[1], resolution[0], 3)), duration=final_duration)
-
-    image_clip = zoom_effect(image_path, final_duration, resolution)
-
-    temp_blurred_path = f"temp_blurred_{hash(image_path)}.png"
-    blur_image_with_imagemagick(image_path, temp_blurred_path, blur_radius=10)
-    blurred_clip = ImageClip(temp_blurred_path).set_position(('center', 'center')).set_duration(final_duration)
-
-    text_clip = TextClip(
-        text,
-        fontsize=font_size,
-        color='white',
-        font=font_path if font_path else 'Arial',
-        size=(resolution[0] - 100, None),
-        method='caption'
-    ).set_position(('center', 'bottom')).set_duration(final_duration)
-
-    final_clip = CompositeVideoClip([base, blurred_clip, image_clip, text_clip])
-    final_clip = final_clip.set_audio(audio_clip)
-
-    try:
-        os.remove(temp_audio)
-        os.remove(temp_blurred_path)
-    except:
-        pass
-
-    return final_clip
-
-
-def create_video(image_paths: List[str], texts: List[str], resolution: tuple = (608, 1080), output_path: str = None, background_music_path: str = None, intro_video_path: str = None) -> str:
-    """
-    Create a complete video from multiple images and texts.
-
-    Args:
-        image_paths (List[str]): List of paths to images.
-        texts (List[str]): List of texts corresponding to each image.
-        resolution (tuple): Video resolution as (width, height). Default is (608, 1080).
-        output_path (str): Path to save the output video. Default is None.
-        background_music_path (str): Path to background music. Default is None.
-        intro_video_path (str): Path to an intro video. Default is None.
-
-    Returns:
-        str: Path to the generated video.
-    """
-    if len(image_paths) != len(texts):
-        raise ValueError("Number of images must match number of texts")
-
-    clips = []
-
-    if intro_video_path and os.path.exists(intro_video_path):
-        intro_clip = VideoFileClip(intro_video_path)
-        if intro_clip.size != resolution:
-            intro_clip = intro_clip.resize(resolution)
-        clips.append(intro_clip)
-
-    for img, txt in zip(image_paths, texts):
-        min_duration = 4.0
-        clip = create_clip(img, txt, min_duration, resolution)
-        clips.append(clip)
-
-        gap = ImageClip(np.zeros((resolution[1], resolution[0], 3)), duration=0.3)
-        gap = gap.set_audio(None)
-        clips.append(gap)
-
-    video = concatenate_videoclips(clips, method="chain")
-
-    if background_music_path and os.path.exists(background_music_path):
-        music = AudioFileClip(background_music_path)
-        if music.duration < video.duration:
-            num_loops = int(np.ceil(video.duration / music.duration))
-            music = concatenate_videoclips([music] * num_loops).subclip(0, video.duration)
+def delete_images(images):
+    """Delete images from the given list if they exist."""
+    for image in images:
+        if os.path.exists(image):
+            os.remove(image)
+            log_success(f"Deleted: {image}")
         else:
-            music = music.subclip(0, video.duration)
+            log_warning(f"File not found: {image}")
 
-        music = music.fx(volumex, 0.3)
-        final_audio = CompositeAudioClip([video.audio, music])
+def process_images(images):
+    """Ensure all images are downloaded if they are URLs."""
+    processed_images = []
+    for img in images:
+        if img.startswith('http'):
+            filename = os.path.basename(img.split('?')[0])  # Handle URL parameters
+            save_path = os.path.join("downloaded_images", filename)
+            os.makedirs("downloaded_images", exist_ok=True)
+            processed_image = download_image(img, save_path)
+            if os.path.exists(processed_image):
+                processed_images.append(processed_image)
+            else:
+                log_warning(f"Skipping missing image: {img}")
+        else:
+            processed_images.append(img)
+    return processed_images
+
+def resize_image_clip(clip, target_size):
+    """Helper function to handle image resizing with proper aspect ratio preservation"""
+    def resize_frame(frame):
+        pil_image = Image.fromarray(frame)
+        # Use LANCZOS resampling (replacement for deprecated ANTIALIAS)
+        resized = pil_image.resize(target_size, Image.LANCZOS)
+        return np.array(resized)
+    return clip.fl_image(resize_frame)
+
+def resize_and_blur_background(clip, target_size):
+    """Resize the image clip while maintaining aspect ratio and adding blurred background"""
+    video_width, video_height = target_size
+
+    # Load image
+    pil_image = Image.fromarray(clip.get_frame(0))  # Get the first frame as an image
+    img_width, img_height = pil_image.size
+
+    # Scale the image to match the target width
+    scale_factor = video_width / img_width
+    new_height = int(img_height * scale_factor)
+    resized_img = pil_image.resize((video_width, new_height), Image.LANCZOS)
+
+    # Convert back to array
+    resized_frame = np.array(resized_img)
+
+    # Create blurred background
+    blurred_bg = pil_image.resize((video_width, video_height), Image.LANCZOS).filter(ImageFilter.GaussianBlur(20))
+    blurred_bg_frame = np.array(blurred_bg)
+
+    # Create final frame by overlaying resized image on top of blurred background
+    final_frame = blurred_bg_frame.copy()
+    y_offset = (video_height - new_height) // 2
+    final_frame[y_offset:y_offset+new_height, :, :] = resized_frame  # Overlay resized image
+
+    return mp.ImageClip(final_frame).set_duration(clip.duration)
+
+def create_video(images, audio_path, srt_path, ministry, output_path):
+    # Import numpy here to avoid any potential import issues
+    if os.path.exists(output_path):
+        log_warning(f"Video already exists skipping video generation: {output_path}")
+        return
+
+    processed_images = process_images(images)
+
+    # Check if all input files exist
+    for file_path in [*processed_images, audio_path, srt_path, INTRO_PATH, f"{HEADER_PATH}/{ministry}.png", BGM_PATH]:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Input file not found: {file_path}")
+
+    try:
+        # Load intro clip
+        intro_clip = mp.VideoFileClip(INTRO_PATH)
+        
+        # Load audio
+        # narration_audio = mp.AudioFileClip(audio_path)
+        # Load audio
+        narration_audio = mp.AudioFileClip(audio_path).set_start(intro_clip.duration)
+
+        
+        # Set resolution to 9:16 (e.g., 1080x1920)
+        video_width, video_height = 1080, 1920
+        
+        # Load images and apply zoom effect
+        image_clips = []
+        duration_per_image = (narration_audio.duration - intro_clip.duration) / len(processed_images)
+        
+        for image in processed_images:
+            # Load the image and create clip
+            img_clip = mp.ImageClip(image).set_duration(duration_per_image)
+            
+            # Get original image dimensions
+            img_size = Image.open(image).size
+            
+            # Calculate scaling factors
+            scale_w = video_width / img_size[0]
+            scale_h = video_height / img_size[1]
+            scale = max(scale_w, scale_h)
+            
+            # Calculate new dimensions maintaining aspect ratio
+            new_size = (int(img_size[0] * scale), int(img_size[1] * scale))
+            
+            # Resize the clip
+            img_clip = resize_and_blur_background(img_clip, (video_width, video_height))
+            
+            # Center the clip and add effects
+            img_clip = (img_clip
+                       .set_position(("center", "center"))
+                       .fx(mp.vfx.fadein, 0.5)
+                       .fx(mp.vfx.fadeout, 0.5))
+            
+            image_clips.append(img_clip)
+        
+        # Concatenate intro and image sequence
+        video = mp.concatenate_videoclips([intro_clip] + image_clips, method="compose")
+        
+        # Create header overlay with proper sizing
+        header_clip = mp.ImageClip(f"{HEADER_PATH}/{ministry}.png")
+        header_size = (video_width, int(video_width * 0.2))  # 15% of width for height
+        header_overlay = (resize_image_clip(header_clip, header_size)
+                        .set_duration(video.duration - intro_clip.duration)
+                        .set_position(("center", "top")))
+        
+        video = mp.CompositeVideoClip([
+            video.set_duration(video.duration),
+            header_overlay.set_start(intro_clip.duration)
+        ])
+        
+        # Add subtitles
+        subtitles = pysrt.open(srt_path)
+        subtitle_clips = []
+        
+        for sub in subtitles:
+            start_seconds = time_to_seconds(sub.start.to_time())+ intro_clip.duration
+            end_seconds = time_to_seconds(sub.end.to_time())+ intro_clip.duration
+            duration = end_seconds - start_seconds
+            txt_clip = (mp.TextClip(
+                sub.text,
+                fontsize=85,
+                color='orange',
+                stroke_color='black',
+                stroke_width=3,
+                size=(int(video_width*0.8), None),
+                method='caption',
+                font='Hindi.ttf' if os.name == 'nt' else 'Arial'  # Handle different OS font names
+            ).set_position(("center", 0.8),relative=True)
+             .set_start(start_seconds)
+             .set_duration(duration))
+            
+            subtitle_clips.append(txt_clip)
+        
+        # Merge subtitles with video
+        video = mp.CompositeVideoClip([video] + subtitle_clips)
+        
+        # Add background music
+        bgm_audio = mp.AudioFileClip(BGM_PATH).set_duration(narration_audio.duration).volumex(0.3).set_start(intro_clip.duration)
+        final_audio = mp.CompositeAudioClip([intro_clip.audio,narration_audio, bgm_audio])
         video = video.set_audio(final_audio)
+        # video = video.set_audio(final_audio).fx(mp.vfx.audio_fadein, 1.0)
 
-    if not output_path:
-        date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        output_path = f"output_video_{date_str}.mp4"
-
-    video.write_videofile(output_path, fps=24)
-    return output_path
-
-
-def split_content_into_segments(content: str, max_chars: int = 100) -> List[str]:
-    """
-    Split content into segments for video generation.
-
-    Args:
-        content (str): The content to split.
-        max_chars (int): Maximum characters per segment. Default is 100.
-
-    Returns:
-        List[str]: List of content segments.
-    """
-    words = content.split()
-    segments = []
-    current_segment = []
-    current_length = 0
-
-    for word in words:
-        if current_length + len(word) + 1 <= max_chars:
-            current_segment.append(word)
-            current_length += len(word) + 1
-        else:
-            segments.append(" ".join(current_segment))
-            current_segment = [word]
-            current_length = len(word)
-
-    if current_segment:
-        segments.append(" ".join(current_segment))
-
-    return segments
-
-
-async def generate_language_video(lang: str, title: str, content: str, images: List[str], resolution: tuple = (608, 1080)) -> str:
-    """
-    Generate video for a specific language.
-
-    Args:
-        lang (str): Language code.
-        title (str): Title of the video.
-        content (str): Content of the video.
-        images (List[str]): List of image paths.
-        resolution (tuple): Video resolution as (width, height). Default is (608, 1080).
-
-    Returns:
-        str: Path to the generated video.
-    """
-    texts = split_content_into_segments(content)
-    output_path = f"video_{lang}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-
-    try:
-        create_video(
-            image_paths=images,
-            texts=texts,
-            resolution=resolution,
-            output_path=output_path,
-            background_music_path="assets/background_music.mp3",
-            intro_video_path="assets/intro.mp4"
+        ensure_directory_exists(os.path.dirname(output_path))
+        
+        # Export the final video
+        video.write_videofile(
+            output_path,
+            codec="libx264",
+            fps=30,
+            audio_codec="mp3",
+            threads=4,
+            preset='medium'  # Balance between speed and quality
         )
-        return output_path
-    except Exception as e:
-        raise Exception(f"Error generating video for {lang}: {str(e)}")
-
-
-async def generate_video(_id: str, translations: Dict[str, Dict[str, str]], images: List[str] = None) -> Dict[str, str]:
-    """
-    Generate videos for each language in the translations.
-
-    Args:
-        _id (str): Unique identifier for the press release.
-        translations (Dict[str, Dict[str, str]]): Dictionary containing translations for different languages.
-        images (List[str]): List of image paths. Default is None.
-
-    Returns:
-        Dict[str, str]: Dictionary mapping language codes to video file paths.
-    """
-    if images is None:
-        images = ["assets/image1.jpg"]  # Default placeholder image
-
-    video_paths = {}
-
-    for lang, translation in translations.items():
+        
+    finally:
+        # Clean up resources
         try:
-            video_path = await generate_language_video(
-                lang=lang,
-                title=translation['title'],
-                content=translation['content'],
-                images=images
-            )
-            video_paths[lang] = video_path
-        except Exception as e:
-            raise Exception(f"Failed to generate video for language {lang}: {str(e)}")
+            intro_clip.close()
+            narration_audio.close()
+            bgm_audio.close()
+            video.close()
+            for clip in image_clips:
+                clip.close()
+            for clip in subtitle_clips:
+                clip.close()
+        except:
+            pass
 
-    return video_paths
-
-
-# Example usage (for testing):
-if __name__ == "__main__":
-    async def test():
-        translations = {
-            "english": {
-                "title": "Test Title",
-                "summary": "This is a test content for video generation."
-            },
-            "hindi": {
-                "title": "परीक्षण शीर्षक",
-                "content": "यह वीडियो जनरेशन के लिए एक परीक्षण सामग्री है।"
-            }
-        }
-
-        try:
-            video_paths = await generate_video("test_id", translations)
-            print("Generated videos:", video_paths)
-        except Exception as e:
-            print(f"Error: {str(e)}")
-
-    asyncio.run(test())
+# if __name__ == "__main__":
+#     create_video(
+#         ["i1.jpg", "i2.jpg", "i3.jpg"],
+#         "hindi.mp3",
+#         "hindi.srt",
+#         "Ministry of Defence",
+#         "output/hindi.mp4"
+#     )

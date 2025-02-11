@@ -320,7 +320,7 @@ def search_images_from_content(content: str, num_images_per_chunk: int = 1, max_
 
     images = []
     for chunk in chunks:
-        log(chunk)
+        log(f"Searching Image for Chunk :{chunk}")
         chunk_results = google_image_search(chunk, num_images_per_chunk)
         images.extend(chunk_results)
 

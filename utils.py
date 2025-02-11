@@ -3,7 +3,9 @@ import re
 import os
 
 from datetime import datetime
-import pytz  # Install pytz using `pip install pytz`
+import pytz 
+
+from logger import log_success
 
 def time_diff(start, end):
     """Helper function to calculate time difference in seconds."""
@@ -68,6 +70,12 @@ def restructure_srt(input_srt_path, max_words=10, max_duration=3):
             output_file.write(f"{idx}\n{start} --> {end}\n{text}\n\n")
 
 
+
+def ensure_directory_exists(directory):
+    """Ensure the given directory exists, create if not found."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        log_success(f"Created directory: {directory}")
 
 def rename(title: str) -> str:
     """
